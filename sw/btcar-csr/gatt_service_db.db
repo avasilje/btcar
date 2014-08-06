@@ -1,0 +1,33 @@
+/*******************************************************************************
+ *  Based on CSR uEnergy SDK 2.2.2
+ *
+ *  FILE
+ *    gatt_service_db.db
+ *
+ *  DESCRIPTION
+ *    service specific database file containing all the attributes: services,
+ *    charcters and descriptors etc
+ *
+ *  NOTES
+ *
+ ******************************************************************************/
+#ifndef __GATT_SERVICE_DB__
+#define __GATT_SERVICE_DB__
+
+#include "gatt_serv_uuid.h"
+
+/* All the names will be used in corresponding generated handle names */
+
+/* For service details, refer http://developer.bluetooth.org/gatt/services/
+ * Pages/ServiceViewer.aspx?u=org.bluetooth.service.generic_attribute.xml.
+ */
+
+/* Primary service declaration of GATT service. */   
+primary_service {
+    uuid : UUID_GATT_SERVICE,
+    name : "GATT_SERVICE"
+    /* No characteristic supported for this service */
+},  /* This comma to be added only if there are more .db files included after 
+     * this in app_gatt_db.db
+     */
+#endif /* __GATT_SERVICE_DB__ */

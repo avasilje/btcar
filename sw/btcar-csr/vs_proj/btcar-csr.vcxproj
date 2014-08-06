@@ -1,0 +1,96 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="..\Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="..\Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{CE3BAE7E-4596-4BCD-AD13-3AB7CC3AF9ED}</ProjectGuid>
+    <Keyword>MakeFileProj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v110</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v110</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <NMakeOutput>btcar-csr.exe</NMakeOutput>
+    <NMakePreprocessorDefinitions>WIN32;_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <NMakeOutput>btcar-csr.exe</NMakeOutput>
+    <NMakePreprocessorDefinitions>WIN32;NDEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <Text Include="..\readme.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\battery_service.c" />
+    <ClCompile Include="..\btcar.c" />
+    <ClCompile Include="..\btcar_gatt.c" />
+    <ClCompile Include="..\btcar_hw.c" />
+    <ClCompile Include="..\gap_service.c" />
+    <ClCompile Include="..\hid_service.c" />
+    <ClCompile Include="..\nvm_access.c" />
+    <ClCompile Include="..\scan_param_service.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\appearance.h" />
+    <ClInclude Include="..\app_gatt.h" />
+    <ClInclude Include="..\battery_service.h" />
+    <ClInclude Include="..\battery_uuids.h" />
+    <ClInclude Include="..\btcar.h" />
+    <ClInclude Include="..\btcar_gatt.h" />
+    <ClInclude Include="..\btcar_hw.h" />
+    <ClInclude Include="..\dev_info_uuids.h" />
+    <ClInclude Include="..\gap_conn_params.h" />
+    <ClInclude Include="..\gap_service.h" />
+    <ClInclude Include="..\gap_uuids.h" />
+    <ClInclude Include="..\gatt_serv_uuid.h" />
+    <ClInclude Include="..\hid_service.h" />
+    <ClInclude Include="..\hid_uuids.h" />
+    <ClInclude Include="..\nvm_access.h" />
+    <ClInclude Include="..\scan_parameters_uuids.h" />
+    <ClInclude Include="..\scan_param_service.h" />
+    <ClInclude Include="..\user_config.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\app_gatt_db.db" />
+    <None Include="..\battery_service_db.db" />
+    <None Include="..\btcar_csr100x.keyr" />
+    <None Include="..\btcar_csr101x_A05.keyr" />
+    <None Include="..\dev_info_service_db.db" />
+    <None Include="..\gap_service_db.db" />
+    <None Include="..\gatt_service_db.db" />
+    <None Include="..\hid_service_db.db" />
+    <None Include="..\pio_ctrlr_code.asm" />
+    <None Include="..\scan_parameters_db.db" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

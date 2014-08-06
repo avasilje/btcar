@@ -1,0 +1,50 @@
+/*******************************************************************************
+ *  Based on CSR uEnergy SDK 2.2.2
+ *
+ * FILE
+ *    scan_parameters_db.db
+ *
+ *  DESCRIPTION
+ *    This file defines the Scan parameters Service in JSON format, which is  
+ *    fairly human readable. This file is included in the main application 
+ *    data base file which is used to produce ATT flat data base.
+ *
+ *****************************************************************************/
+#ifndef __SCAN_PARAMETERS_SERVICE_DB__
+#define __SCAN_PARAMETERS_SERVICE_DB__
+
+#include "scan_parameters_uuids.h"
+
+/* For service details, refer http://developer.bluetooth.org/gatt/services/
+ * Pages/ServiceViewer.aspx?u=org.bluetooth.service.scan_parameters.xml.
+ */
+
+/* Primary service declaration of SCAN PARAMETERS service. */
+primary_service {
+    uuid : SCAN_PARAM_SERVICE_UUID,
+    name : "SCAN_PARAMS_SERVICE",
+
+    /* Scan interval Window characteristic. */
+    characteristic {
+        uuid : SCAN_INTERVAL_WINDOW_UUID,
+        properties : write_cmd,
+        name : "SCAN_INTERVAL_WINDOW",
+        flags : [FLAG_IRQ, FLAG_ENCR_W],
+        value : 0x00
+    },
+
+    /* Scan refresh characteristic. */
+    characteristic {
+        uuid : SCAN_REFRESH_UUID,
+        name : "SCAN_REFRESH",
+        flags : [FLAG_IRQ],
+        properties : [notify],
+        value : 0x00,
+        
+        client_config {
+            flags : [FLAG_IRQ, FLAG_ENCR_W],
+            name : "SCAN_REFRESH_C_CFG"
+            }  
+    }     
+},
+#endif /* __SCAN_PARAMETERS_SERVICE_DB__ */

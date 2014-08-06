@@ -1,0 +1,151 @@
+/*******************************************************************************
+ *  Based on CSR uEnergy SDK 2.2.2
+ *
+ *  FILE
+ *    hid_service_db.db
+ *
+ *  DESCRIPTION
+ *    This file defines the HID Service in JSON format, which 
+ *    is fairly human readable. This file is included in the main 
+ *    application data base file which is used to produce ATT
+ *    flat data base.
+ *
+ ******************************************************************************/
+#ifndef __HID_SERVICE_DB__
+#define __HID_SERVICE_DB__
+
+#include "hid_uuids.h" 
+#include "battery_uuids.h"
+#include "user_config.h"
+
+/* For service details, refer http://developer.bluetooth.org/gatt/services/
+ * Pages/ServiceViewer.aspx?u=org.bluetooth.service.human_interface_device.xml
+ */
+
+/* Primary service declaration of HID service. */
+primary_service {
+    uuid : HID_SERVICE_UUID,
+    name : "HID_SERVICE",
+
+    /* Battery service as an included service. */
+    include {
+        ref : "BATTERY_SERVICE"
+        },
+        
+    /* Protocol mode characteristic. */
+    characteristic {
+        uuid : HID_PROTOCOL_MODE_UUID,
+        name : "HID_PROTOCOL_MODE",
+        flags : [FLAG_IRQ, FLAG_ENCR_R, FLAG_ENCR_W],
+        properties : [read, write_cmd],
+        value : 0x00
+    },   
+
+    /* HID Information characteristic. */
+    characteristic {
+        uuid : HID_INFORMATION_UUID,
+        properties : read,
+        flags : [FLAG_ENCR_R],
+        value : [HID_FLAG_CLASS_SPEC_RELEASE, HID_FLAG_COUNTRY_CODE,
+        HID_INFO_FLAGS]
+    },
+
+    /* HID control point characteristic. */
+    characteristic {
+        uuid : HID_CONTROL_POINT_UUID,
+        name : "HID_CONTROL_POINT",
+        flags : [FLAG_IRQ, FLAG_ENCR_W],
+        properties : write_cmd,
+        value : 0x00
+    },
+
+    /* Report map(report descriptor) characteristic. */
+    characteristic {
+    uuid : HID_REPORT_MAP_UUID,
+    properties : read,
+    flags : [FLAG_ENCR_R],
+    value : [
+
+/* 1 INPUT */    
+             0x06, 0x01, 0xff,  /*   USAGE_PAGE (Vendor Defined Page 1)*/
+             0x09, 0x0A,        /*   USAGE (Vendor Usage 1) */
+             0xa1, 0x01,        /*   COLLECTION (Application) */
+             0x85, 0x01,        /*   REPORT ID(1) */
+             0x75, 0x08,        /*   REPORT_SIZE (8) */
+             0x95, 0x08,        /*   REPORT_COUNT (8) */
+             0x06, 0x01, 0xff,  /*   USAGE_PAGE (Vendor Defined Page 1)*/
+             0x09, 0x0A,        /*   USAGE (Vendor Usage 1) */
+             0x81, 0x00,        /*   INPUT (Data,Ary,Abs) */
+             0xc0,              /*   END_COLLECTION */
+
+/* 2 BATT */
+             0x06, 0x00, 0xff,  /*   USAGE_PAGE (Vendor Defined Page 1)*/
+             0x09, 0x02,        /*   USAGE (Vendor Usage 1) */
+             0xa1, 0x01,        /*   COLLECTION (Application) */
+             0x85, 0x02,        /*   REPORT_ID (2) */
+             0x75, 0x08,        /*   REPORT_SIZE (8) */
+             0x95, 0x01,        /*   REPORT_COUNT (1) */
+             0x15, 0x01,        /*   LOGICAL_MINIMUM (1) */
+             0x25, 0x64,        /*   LOGICAL_MAXIMUM (100) */
+             0x09, 0x20,        /*   USAGE (Battery Strength) */
+             0x81, 0x00,        /*   INPUT (Data,Ary,Abs) */
+             0xc0,              /*   END_COLLECTION */
+
+/* 3 OUTPUT */    
+             0x06, 0x01, 0xff,  /*   USAGE_PAGE (Vendor Defined Page 1)*/
+             0x09, 0x0B,        /*   USAGE (Vendor Usage 1) */
+             0xa1, 0x01,        /*   COLLECTION (Application) */
+             0x85, 0x03,        /*   REPORT_ID (3) */
+             0x75, 0x08,        /*   REPORT_SIZE (8) */
+             0x95, 0x08,        /*   REPORT_COUNT (8) */
+             0x15, 0x01,        /*   LOGICAL_MINIMUM (1) */
+             0x25, 0x64,        /*   LOGICAL_MAXIMUM (100) */
+             0x09, 0x0B,        /*   USAGE (Vendor Usage 1) */
+             0x91, 0x02,        /*   OUTPUT (Data,Var,Abs)*/
+             0xc0               /*   END_COLLECTION */],
+
+             raw {
+                value: [0xe002, HID_EXT_REPORT_REFERENCE_UUID, 0x0002, 
+                BATTERY_LEVEL_UUID]
+             }
+    },
+
+    /* Input report characteristic. */
+    characteristic {
+        uuid : HID_REPORT_UUID,
+        name : "HID_INPUT_REPORT",
+        flags : [FLAG_IRQ, FLAG_ENCR_R],
+        properties : [read, notify],
+        /* Size of input report in report mode. The size depends upon the report
+         * descriptor being used by the keyboard. */
+        size_value : 8,
+        
+        client_config {
+            flags : [FLAG_IRQ, FLAG_ENCR_W],
+            name : "HID_INPUT_RPT_CLIENT_CONFIG"
+            },
+            
+        raw {
+        value: [0xe002, HID_REPORT_REFERENCE_UUID, 0x0002, 0x0101] /* Report ID - 1,
+                                                                    * Report Type - 1 (Input)
+                                                                    */
+        }
+    },
+    
+    /* Output report characteristic. */
+    characteristic {
+        uuid : HID_REPORT_UUID,
+        name : "HID_OUTPUT_REPORT",
+        flags : [FLAG_IRQ],
+        properties : [read, write, write_cmd],
+        /* Size of the output report as described in the report descriptor. */ 
+        size_value : 8,
+            
+        raw {
+        value: [0xe002, HID_REPORT_REFERENCE_UUID, 0x0002, 0x0302] /* Report ID - 3,
+                                                                    * Report Type - 2 (Output)
+                                                                    */
+        }
+    }
+},
+#endif /* __HID_SERVICE_DB__ */

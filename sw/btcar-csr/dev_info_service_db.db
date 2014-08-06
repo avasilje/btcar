@@ -1,0 +1,96 @@
+/*******************************************************************************
+ *  Based on CSR uEnergy SDK 2.2.2
+ *
+ *  FILE
+ *    dev_info_service_db.db
+ *
+ *  DESCRIPTION
+ *    This file defines the device information Service in JSON format, which is
+ *    fairly human readable. This file is included in the main application
+ *    data base file which is used to produce ATT flat data base.
+ *
+ * NOTES
+ *
+ ****************************************************************************/
+#ifndef __DEV_INFO_SERVICE_DB__
+#define __DEV_INFO_SERVICE_DB__
+
+#include "dev_info_uuids.h"
+#include "user_config.h"
+
+/* For service details, refer http://developer.bluetooth.org/gatt/services/
+ * Pages/ServiceViewer.aspx?u=org.bluetooth.service.device_information.xml
+ */
+
+/* All the names will be used in corresponding generated handle names */
+
+/* Primary service declaration of Device Information service. */
+primary_service {
+    uuid : UUID_DEVICE_INFO_SERVICE,
+    name : "DEVICE_INFO_SERVICE",
+
+    /* Serial number characteristic. */
+    characteristic {
+        uuid : UUID_DEVICE_INFO_SERIAL_NUMBER,
+        properties : read,
+        flags : [FLAG_ENCR_R],
+        name : "DEVICE_INFO_SERIAL_NUMBER",
+        value : "BLE-BTCAR-008-0"
+    },
+    
+    /* Model number characteristic. */
+    characteristic {
+        uuid : UUID_DEVICE_INFO_MODEL_NUMBER,
+        properties : read,              /* characteristic can only be read */
+        flags : [FLAG_ENCR_R],
+        name : "DEVICE_INFO_MODEL_NUMBER",
+        value : "BLE-BTCAR-MODEL-008-1"
+    },
+    
+    /* Hardware revision characteristic. */
+    characteristic {
+        uuid : UUID_DEVICE_INFO_HARDWARE_REVISION,
+        properties : read,
+        flags : [FLAG_ENCR_R],
+        name : "DEVICE_INFO_HARDWARE_REVISION",
+        value : HARDWARE_REVISION
+    },
+    
+    /* Firmware revision characteristic. */
+    characteristic {
+        uuid : UUID_DEVICE_INFO_FIRMWARE_REVISION,
+        properties : read,
+        flags : [FLAG_ENCR_R],
+        name : "DEVICE_INFO_FIRMWARE_REVISION",
+        value : "AVCSR uEnergy SDK 2.1.0"
+    },
+    
+    /* Software revision characteristic. */
+    characteristic {
+        uuid : UUID_DEVICE_INFO_SOFTWARE_REVISION,
+        properties : read,
+        flags : [FLAG_ENCR_R],
+        name : "DEVICE_INFO_SOFTWARE_REVISION",
+        value : "Application version 2.1.1.0"
+    },
+    
+    /* Manufacturer name characteristic. */
+    characteristic {
+        uuid : UUID_DEVICE_INFO_MANUFACTURER_NAME,
+        properties : read,
+        flags : [FLAG_ENCR_R],
+        name : "DEVICE_INFO_MANUFACTURER_NAME",
+        value : "AVCambridge Silicon Radio"
+    },
+    
+    /* PNP ID characteristic. */
+    characteristic {
+        uuid : UUID_DEVICE_INFO_PNP_ID,
+        properties : read,
+        name : "DEVICE_INFO_PNP_ID",
+        value : [VENDOR_ID_SRC_BT, VENDOR_ID,
+                 PRODUCT_ID,
+                 PRODUCT_VER]
+    }  
+}
+#endif /* __DEV_INFO_SERVICE_DB__ */

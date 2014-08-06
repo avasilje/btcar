@@ -1,0 +1,23 @@
+/*******************************************************************************
+ *  Based on CSR uEnergy SDK 2.2.2
+ *
+ *  FILE
+ *    app_gatt_db.db
+ *
+ *  DESCRIPTION
+ *    This file defines the database for BTCAR by including all the services
+ *    used by the application in JSON format, which is fairly human readable.
+ *
+ *****************************************************************************/
+
+/* Include the database files of all the services which will be used by the
+ * application. The uEnergy SDK creates the GATT database using this db file.
+ */
+
+#include "gap_service_db.db"
+#include "gatt_service_db.db"
+#include "hid_service_db.db"
+
+#include "battery_service_db.db" 
+#include "scan_parameters_db.db"
+#include "dev_info_service_db.db"
