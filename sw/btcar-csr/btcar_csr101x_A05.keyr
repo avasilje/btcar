@@ -1,13 +1,13 @@
 >DECIMAL_CS_VERSION=67
 
 // (0001) - Bluetooth device address
-&BDADDR = 1223 5d00 0002
+&BDADDR = 1223 5d00 0003
 
 // (0002) - Crystal frequency trim
 &CRYSTAL_FTRIM = 0020
 
 // (0017) - Identity Root
-&IDENTITY_ROOT = 00 00 00 00 00 02 02 03
+&IDENTITY_ROOT = 00 00 00 00 00 02 02 04
 
 // (0018) - Encryption Root
 &ENCRYPTION_ROOT = 00 00 00 00 00 03 00 00

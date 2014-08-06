@@ -39,17 +39,18 @@
 /* A macro to force MITM while pairing is in progress. Enable this macro to 
  * force MITM while pairing with devices using random resolvable address.
  */
-#define __FORCE_MITM__
+
+/* #define __FORCE_MITM__ */
 
 /* If the keyboard should never disconnect from the host, uncomment this. */
-/* #define __NO_IDLE_TIMEOUT__                      1 */
+#define __NO_IDLE_TIMEOUT__                      1
 
 /* Vendor Id */
 /* #define VENDOR_ID                               0x000A */
 /* #define PRODUCT_ID                              0x014C */
 #define VENDOR_ID                               0x000A
-#define PRODUCT_ID                              0x0163
-#define PRODUCT_VER                             0x0213
+#define PRODUCT_ID                              0x0165
+#define PRODUCT_VER                             0x0215
 
 /* Maximum number of Key strokes buffered in the circular queue. This value can
  * be changed depending on the requirement to buffer keys pressed before
