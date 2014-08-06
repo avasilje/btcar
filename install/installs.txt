@@ -1,0 +1,17 @@
+1. Driver for HAMA BT 4.0
+49218_V_2_0_Windows_XP_Vista_7.exe
+https://de.hama.com/webresources/drivers/00049/49218_V_2_0_Windows_XP_Vista_7.exe
+daugava.gdneurope:/share/btcar/49218_V_2_0_Windows_XP_Vista_7.exe
+
+2. CSR IDE & SDK
+CSR uEnergy Starter Dev Kit CD-ROM Files.zip
+daugava.gdneurope:/share/btcar/CSR uEnergy Starter Dev Kit CD-ROM Files.zip
+
+3. Win8.1 SDK 
+Required to access BT LE API on windows 7.
+Also required to build hclient application on win 7
+http://msdn.microsoft.com/en-us/windows/desktop/bg162891.aspx
+
+4. IDE for ATMEL MCUs
+Atmel Studio 6.2 (build 1153) Installer
+http://www.atmel.com/tools/ATMELSTUDIO.aspx
