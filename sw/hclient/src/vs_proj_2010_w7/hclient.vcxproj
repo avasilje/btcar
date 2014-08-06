@@ -437,13 +437,13 @@
     </Midl>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="buffers.c" />
-    <ClCompile Include="ecdisp.c" />
-    <ClCompile Include="hclient.c" />
-    <ClCompile Include="pnp.c" />
-    <ClCompile Include="report.c" />
-    <ClCompile Include="strings.c" />
-    <ResourceCompile Include="hclient.rc" />
+    <ClCompile Include="..\buffers.c" />
+    <ClCompile Include="..\ecdisp.c" />
+    <ClCompile Include="..\hclient.c" />
+    <ClCompile Include="..\pnp.c" />
+    <ClCompile Include="..\report.c" />
+    <ClCompile Include="..\strings.c" />
+    <ResourceCompile Include="..\hclient.rc" />
   </ItemGroup>
   <ItemGroup>
     <Inf Exclude="@(Inf)" Include="*.inf" />
