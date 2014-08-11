@@ -27,7 +27,6 @@
 #include "cmd_lib.h"
 #include "io_proc_devcmd.h"
 #include "io_proc_devresp.h"
-#include "io_proc_measure.h"
 #include "io_proc.h"
 
 T_IO_FLAGS gt_flags;
