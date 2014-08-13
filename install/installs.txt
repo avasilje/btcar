@@ -15,3 +15,7 @@ http://msdn.microsoft.com/en-us/windows/desktop/bg162891.aspx
 4. IDE for ATMEL MCUs
 Atmel Studio 6.2 (build 1153) Installer
 http://www.atmel.com/tools/ATMELSTUDIO.aspx
+
+5. Driver for FTDI chip
+http://www.ftdichip.com/FTDrivers.htm
+or ..\sw\ftdi\
