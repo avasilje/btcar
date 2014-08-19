@@ -1,5 +1,6 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include <string.h>
 #include "actions.h"
 
 //------ Global variables in Program Memory ---------------------
@@ -14,12 +15,11 @@ char  gca_signature[SIGN_LEN] __attribute__ ((section (".act_const"))) = "BTCAR 
 
 
 //------ Global variables SRAM ---------------------
-//uint16      gusa_verify_buff[VERIFY_BUFF_LEN];
 
 //------ Local functions ---------------------
 __attribute__ ((section (".actions"))) 
 void wait_64us(){
-    uint8 uc_i;
+    uint8_t uc_i;
     for(uc_i = 0; uc_i < 64; uc_i++){
         __asm__ __volatile__ ("nop;" ::);
         __asm__ __volatile__ ("nop;" ::);
@@ -38,10 +38,10 @@ void wait_64us(){
 }
 
 __attribute__ ((section (".actions"))) 
-uint8 action_leds_on(){
+uint8_t action_leds_on(){
 
-    uint8   uc_data;
-	uint8   uc_len;
+    uint8_t   uc_data;
+	uint8_t   uc_len;
 
     // 0x16 0x01 0xRG
     // CMD  Len  LED ON mask
@@ -59,21 +59,21 @@ uint8 action_leds_on(){
 
 #if 0
 __attribute__ ((section (".actions"))) 
-uint8 fill_verify_buf(uint16 us_len_w){
+uint8_t fill_verify_buf(uint16_t us_len_w){
 
-    uint8   uc_data, uc_i, uc_wtv;
-    uint8   *puc_buff;
+    uint8_t   uc_data, uc_i, uc_wtv;
+    uint8_t   *puc_buff;
 
     // if uc_len_w == 0, then full length == N*256, where N>0
     // Check number of word to read
-    uc_wtv= (uint8)VERIFY_BUFF_LEN;
-    if (uc_wtv > us_len_w) uc_wtv = (uint8)us_len_w;
+    uc_wtv= (uint8_t)VERIFY_BUFF_LEN;
+    if (uc_wtv > us_len_w) uc_wtv = (uint8_t)us_len_w;
     
     // Prepare return value
     uc_i = uc_wtv;
 
     // read reference data from FIFO
-    puc_buff = (uint8*)gusa_verify_buff;
+    puc_buff = (uint8_t*)gusa_verify_buff;
 
     // Read First low part
     while(bit_is_set(FIFO_CNTR_PIN, FIFO_CNTR_RXF) );
@@ -116,14 +116,14 @@ uint8 fill_verify_buf(uint16 us_len_w){
 
 
 __attribute__ ((section (".actions"))) 
-uint8 action_single_write(){
+uint8_t action_single_write(){
 // Must be placed to reprogrammable flash area
 // {"swr ", 0x14, action_single_write},
 
-    uint8   uca_data[2];
-    uint8   uca_addr[4];
-    uint8   uc_type;
-    uint8   uc_flash_type;
+    uint8_t   uca_data[2];
+    uint8_t   uca_addr[4];
+    uint8_t   uc_type;
+    uint8_t   uc_flash_type;
 
     // 0x14 0xTT  0xAAAAAAAA      0xDDDD
     // CMD  Type  Address 32bit   DATA 16-bit
@@ -231,10 +231,10 @@ uint8 action_single_write(){
 #endif
 
 __attribute__ ((section (".actions"))) 
-uint8 action_signature(){
+uint8_t action_signature(){
 
-    uint8 uc_i;
-	uint8 uc_len;
+    uint8_t uc_i;
+	uint8_t uc_len;
 
     // Read cmd len (must be 0)
     FIFO_RD(&uc_len);
@@ -264,7 +264,7 @@ uint8 action_signature(){
 //
 T_ACTION gta_action_table[64] __attribute__ ((section (".act_const"))) = {
 
-    {"mark", 0x00, (uint8 (*)())0xFEED          },    // Table signature
+    {"mark", 0x00, (uint8_t (*)())0xFEED          },    // Table signature
     {"sign", 0x11, action_signature             },    
 //    {"pwr ", 0x12, action_power                 },    
     {"leds", 0x16, action_leds_on               },
