@@ -11,8 +11,9 @@
  *
  ******************************************************************************/
 //TODO: 
-//2. move DBG staff into dedicated file.
-//3. Move unittest staff to dedicated file.
+// +2. move DBG staff into dedicated file.
+// +3. Move unittest staff to dedicated file.
+//  4. Relocate main for unit test. Make file structure more convnient
 
 /* Define DBG log signature */
 #include "local_fids.h"
@@ -72,7 +73,7 @@ uint16_t gus_trap_line;
 //------- Internal function declaration -------
 uint8_t proceed_command(uint8_t uc_cmd);
 uint8_t action_ping();
-uint8_t action_self_write();
+//uint8_t action_self_write();
 uint8_t action_self_read();
 
 #define LB1 0
@@ -85,8 +86,6 @@ DBG_BUFF_t *gpt_dbg_log_buff;
 //DBG_BUFF_t *gpt_csr_log_buff      = &gt_csr_log_buff;
 //DBG_BUFF_t *gpt_cmd_resp_log_buff = &gt_cmd_resp_log_buff; 
 
-uint8_t guc_unit_test_flag;
-uint8_t guc_unit_test_cnt;
 
 void _fatal_trap(uint16_t us_line_num)
 {
@@ -160,197 +159,9 @@ void init_hw_io(void)
 }
 
 
-/* Simulate single message unload from dbg buffer */
-void unit_test_dbg_buf_unload(void)
-{
-    uint8_t uc_rd_idx, uc_mark;
-    int16_t s_to_read;
-    
-    s_to_read = (int16_t)gt_dbg_log_buff.uc_wr_idx - gt_dbg_log_buff.uc_rd_idx;
-    
-    if (s_to_read < 0)
-        s_to_read  += DBG_BUFF_LEN;
-        
-    if (s_to_read == 0)        
-        return;
-    
-    uc_rd_idx = gt_dbg_log_buff.uc_rd_idx;
-    
-    uc_mark = gt_dbg_log_buff.uca_data[uc_rd_idx++];
-    if (uc_mark == DBG_BUFF_MARK_OVFL)
-    {
-        uc_rd_idx ++;
-        gt_dbg_log_buff.uc_rd_idx = uc_rd_idx;
-        return;    
-    }
-    else if (uc_mark == DBG_BUFF_MARK_LOG || uc_mark == DBG_BUFF_MARK_LOG_ISR)
-    {
-        uint8_t uc_len;
-        if (gt_dbg_log_buff.uca_data[uc_rd_idx++] != LOCAL_FILE_ID)
-            FATAL_TRAP();
-        uc_rd_idx += sizeof(int16_t);   // line num
-        uc_len = gt_dbg_log_buff.uca_data[uc_rd_idx++];
-        while(uc_len--)
-        {
-            gt_dbg_log_buff.uca_data[uc_rd_idx++] = 0xCC;
-        }
-        gt_dbg_log_buff.uc_rd_idx = uc_rd_idx;
-    }
-    else 
-    {
-        FATAL_TRAP();
-    }
-
-    return;    
-}
-
-void unit_test_dbg_log(void)
-{
-    
-#if 0    
-    // Sanity 
-    DBG_LOG("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");    // 64
-    DBG_LOG("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");    // 64
-    DBG_LOG("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");    // 64
-    DBG_LOG("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");    // 64 Overflow here
-    DBG_LOG("0123456789abcdef0123456789abcdef");                                    // Fit OK
-    DBG_LOG("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");    // overlfow 
-    DBG_LOG("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");    // Multiple overflow
-    DBG_LOG("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");    // Multiple overflow
-    DBG_LOG("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");    // Multiple overflow
-   
-    // Checkpoint 
-    // Verify control sum
-    
-    unit_test_dbg_buf_unload();
-    
-    // Check index wrap
-    DBG_LOG("0123456789abcdef0123456789abcdef");    // Fit OK
-    DBG_LOG("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");    // 64 Overflow here
-    DBG_LOG("0123456789abcdef0123456");    // Fit tight
-    DBG_LOG("");    // Overflow
-    DBG_LOG("");    // Multiple Overflow
-
-    unit_test_dbg_buf_unload();
-    unit_test_dbg_buf_unload();
-    unit_test_dbg_buf_unload();
-    unit_test_dbg_buf_unload();
-    
-    for (uint8_t uc_i = 0; uc_i < 255; uc_i++)
-    {
-        unit_test_dbg_buf_unload();
-        unit_test_dbg_buf_unload();
-        unit_test_dbg_buf_unload();
-        unit_test_dbg_buf_unload();
-
-        unit_test_dbg_buf_unload();
-        unit_test_dbg_buf_unload();
-        unit_test_dbg_buf_unload();
-        unit_test_dbg_buf_unload();
-
-        DBG_LOG("0123456789abcdef0123456789abcdef0");    // 32
-        DBG_LOG("0123456789abcdef0123456789abcdef0");    // 32
-        DBG_LOG("0123456789abcdef0123456789abcdef0");    // 32
-        DBG_LOG("0123456789abcdef0123456789abcdef0");    // 32
-
-        DBG_LOG("0123456789abcdef0123456789abcdef0");    // 32
-        DBG_LOG("0123456789abcdef0123456789abcdef0");    // 32
-        DBG_LOG("0123456789abcdef0123456789abcdef0");    // 32
-        DBG_LOG("0123456789abcdef0123456789abcdef0");    // 32
-    }
-
-    unit_test_dbg_buf_unload();
-    unit_test_dbg_buf_unload();
-    unit_test_dbg_buf_unload();
-    unit_test_dbg_buf_unload();
-#endif // 0
-        
-    /*
-     *  ISR
-     */
-    
-    /*
-        To be tested:
-            1. ISR WR 
-            2. ISR WR + User WR
-            3. ISR OVFL + User WR
-            4. Multi ISR OVFL + User WR
-            5. User OVFL + ISR OVFL
-    */
-
-    TCCR4B = TIMER_4_PRESCALER;    
-
-    // 1. ISR WR
-    for (uint8_t uc_i = 0; uc_i < 2; uc_i ++)
-    { 
-        guc_unit_test_cnt = 1;
-        TCNT4 = 0xFFFE;    // Triggers immediately
-        ENABLE_TIMER_4;
-        GLOBAL_IRQ_FORCE_EN();
-        while (guc_unit_test_cnt);
-        GLOBAL_IRQ_DIS();
-        DISABLE_TIMER_4;
-        DBG_LOG("-USER-6789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
-        unit_test_dbg_buf_unload();
-        unit_test_dbg_buf_unload();
-    }
-
-    // 2. ISR WR + User WR
-    for (uint8_t uc_i = 0; uc_i < 2; uc_i ++)
-    { 
-        guc_unit_test_cnt = 1;
-        TCNT4 = 0xFFFB;    // Different const for DBG & Release
-        ENABLE_TIMER_4;
-        GLOBAL_IRQ_FORCE_EN();
-        DBG_LOG("-USER-6789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
-        while (guc_unit_test_cnt);
-        GLOBAL_IRQ_DIS();
-        DISABLE_TIMER_4;
-        unit_test_dbg_buf_unload();
-        unit_test_dbg_buf_unload();
-    }    
-
-    // 3. ISR OVFL + User WR
-    guc_unit_test_cnt = 1;
-    TIFR4 = 0; 
-    TCNT4 = 0xFFFE; 
-    ENABLE_TIMER_4;
-    DBG_LOG("-USER-6789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
-    DBG_LOG("-USER-6789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
-    DBG_LOG("-USER-6789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
-    DBG_LOG("-USER-6789abcdef0123457");
-    GLOBAL_IRQ_FORCE_EN();
-    while (guc_unit_test_cnt);
-    GLOBAL_IRQ_DIS();
-    DISABLE_TIMER_4;
-
-    DBG_LOG("-USER-");
-    DBG_LOG("-OVFL-");
-
-    guc_unit_test_cnt = 1;
-    TIFR4 = 0; 
-    TCNT4 = 0xFFFE; 
-    ENABLE_TIMER_4;
-    GLOBAL_IRQ_FORCE_EN();
-    while (guc_unit_test_cnt);
-    GLOBAL_IRQ_DIS();
-    DISABLE_TIMER_4;
-    
-    DBG_LOG("-OVFL-");
-    unit_test_dbg_buf_unload();
-    unit_test_dbg_buf_unload();
-    unit_test_dbg_buf_unload();
-    unit_test_dbg_buf_unload();
-    unit_test_dbg_buf_unload();
-    unit_test_dbg_buf_unload();
-    unit_test_dbg_buf_unload();
-    
-
-}
-
 
 //---------------------------------------------
-int main() {
+int main_av() {
 
     uint8_t uc_i;
 
@@ -381,7 +192,6 @@ int main() {
 
     dbg_buffer_init();
 
-    unit_test_dbg_log();
     DBG_LOG("BTCAR mcu started");
 
 
@@ -438,7 +248,7 @@ uint8_t proceed_command(uint8_t uc_mcu_cmd){
     uint8_t (*pf_func)();
     uint8_t uc_act_cmd;
     uint8_t uc_ret_cmd;
-    uint8_t uc_i;
+//    uint8_t uc_i;
 
 
     DISABLE_RX_TIMER;
@@ -465,18 +275,20 @@ uint8_t proceed_command(uint8_t uc_mcu_cmd){
         case ACTION_PING : 
             uc_ret_cmd = action_ping();
             break;
-        case ACTION_SELF_WRITE:
-
-            // Paranoic Flash write protection
-            for (uc_i = 0; uc_i < 200; uc_i++){
-                if (uc_mcu_cmd != ACTION_SELF_WRITE) {
-                return 0;
-                }
-            }
-            if (uc_i != 200) return 0;
-            guc_mem_guard = 1;
-            uc_ret_cmd = action_self_write();
-            break;
+/*
+//         case ACTION_SELF_WRITE:
+// 
+//             // Paranoic Flash write protection
+//             for (uc_i = 0; uc_i < 200; uc_i++){
+//                 if (uc_mcu_cmd != ACTION_SELF_WRITE) {
+//                 return 0;
+//                 }
+//             }
+//             if (uc_i != 200) return 0;
+//             guc_mem_guard = 1;
+//             uc_ret_cmd = action_self_write();
+//             break;
+*/
         case ACTION_SELF_READ:
             uc_ret_cmd = action_self_read();
             break;
@@ -654,12 +466,3 @@ uint8_t action_self_read(){
 }
 
 
-ISR(TIMER4_OVF_vect) {
-
-    DBG_LOG_ISR("-ISR-56789abcdef0123456789abcdef");
-
-    guc_unit_test_cnt --;    
-
-    // single occurrence. No reload.
-       
-}

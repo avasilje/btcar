@@ -14,20 +14,12 @@
 
 #include "btcar_common.h"
 #include "dbg_log.h"
-
-#define DBG_BUFF_MARK_SIZE      2
-#define DBG_BUFF_MARK_OVFL      0xDD
-#define DBG_BUFF_MARK_LOG       0xD5
-#define DBG_BUFF_MARK_LOG_ISR   0xD9
+#include "dbg_log_int.h"
 
 DBG_BUFF_t gt_csr_log_buff;
 DBG_BUFF_t gt_dbg_log_buff;
 DBG_BUFF_t gt_cmd_resp_log_buff;
 
-// Buffer IDs used for buff creation routine just to avoid memory allocation
-#define DBG_BUFF_ID_DBGL    1
-#define DBG_BUFF_ID_CSRL    2
-#define DBG_BUFF_ID_CRSP    3
 
 /* 
  * Function preserves some space in buffer in order to avoid ISR blocking during 

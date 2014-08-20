@@ -86,13 +86,6 @@ void leds_control(uint8_t uc_leds);
 
 #define RX_CNT_TCCRxB      3    // Prescaler value (3->1/64)
 
-
-#define DISABLE_TIMER_4    TIMSK4 = 0            // Disable Overflow Interrupt
-#define ENABLE_TIMER_4     TIMSK4 = (1<<TOIE4);  // Enable Overflow Interrupt
-#define TIMER_4_CNT_RELOAD (0xFFFF - 10)         // Clarify
-#define TIMER_4_PRESCALER   3                    // Prescaler value (3->1/64)
-
-
 #define FIFO_DATA_PORT  PORTC
 #define FIFO_DATA_DIR   DDRC
 #define FIFO_DATA_PIN   PINC

@@ -17,4 +17,7 @@
 #define FID_ACTIONS     3
 
 
+#define FID_UT_DBG_BUFF 4
+
+
 #endif // __DBG_LOG_H__

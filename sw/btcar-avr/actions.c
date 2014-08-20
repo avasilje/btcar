@@ -1,3 +1,8 @@
+/* Define DBG log signature */
+#include "local_fids.h"
+#define LOCAL_FILE_ID FID_ACTIONS
+
+
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <string.h>
