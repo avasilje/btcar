@@ -485,7 +485,7 @@ int check_io_pipe_connection(int *pn_prompt_restore){
 /***C*F******************************************************************************************
 **
 ** FUNCTION       : proceed_cmd
-** DATE           : 01/20/2011
+** DATE           : 
 ** AUTHOR         : AV
 **
 ** DESCRIPTION    : Check user input (parse command), write  to DLE IO pipe if command OK
@@ -535,11 +535,11 @@ int proceed_cmd(WCHAR *pc_cmd_arg){
         DWORD dw_n;
         // Send command 
         n_rc = WriteFile(
-            gh_io_pipe,             //__in         HANDLE hFile,
+            gh_io_pipe,                 //__in         HANDLE hFile,
             pc_cmd_arg,                 //__in         LPCVOID lpBuffer,
             (int)wcslen(pc_cmd_arg)<<1, //__in         DWORD nNumberOfBytesToWrite,
             &dw_n,                      //__out_opt    LPDWORD lpNumberOfBytesWritten,
-            &gt_io_tx_overlap       //__inout_opt  LPOVERLAPPED lpOverlapped
+            &gt_io_tx_overlap           //__inout_opt  LPOVERLAPPED lpOverlapped
         );
 
         if(!n_rc){

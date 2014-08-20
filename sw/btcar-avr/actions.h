@@ -128,6 +128,6 @@ void leds_control(uint8_t uc_leds);
 #define LED_DIR   DDRG
 #define LED_PIN   PING
 
-#define LED_RED		PING1
-#define LED_GREEN	PING3
+#define LED_RED        PING1
+#define LED_GREEN    PING3
 

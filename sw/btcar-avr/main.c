@@ -1,47 +1,38 @@
-//TODO:   hello 
+/*******************************************************************************
+ *  
+ *  PROJECT
+ *    BTCar
+ *
+ *  FILE
+ *    dbg_log.c
+ *
+ *  DESCRIPTION
+ *    
+ *
+ ******************************************************************************/
+//TODO: 
 //2. move DBG staff into dedicated file.
 //3. Move unittest staff to dedicated file.
 
-
-#include <avr/interrupt.h>
-#include <avr/pgmspace.h>
-#include <avr/boot.h> 
-#include <string.h>
-#include "actions.h"
-
-#define FID_MAIN 0
+/* Define DBG log signature */
+#include "local_fids.h"
 #define LOCAL_FILE_ID FID_MAIN
 
-extern void _fatal_trap(uint16_t us_line_num);
-#define FATAL_TRAP() _fatal_trap(__LINE__)
+#include <stdint.h>
+#include <string.h>
 
-uint8_t guc_global_isr_dis_cnt = 0;
+#include <avr/pgmspace.h>
+#include <avr/boot.h> 
 
-#define GLOBAL_IRQ_FORCE_EN()       \
-    do                              \
-    {                               \
-        guc_global_isr_dis_cnt = 0; \
-        sei();                      \
-    } while(0)
- 
-#define GLOBAL_IRQ_DIS()            \
-    do                              \
-    {                               \
-       guc_global_isr_dis_cnt++;    \
-       cli();                       \
-    } while(0)
-    
-#define GLOBAL_IRQ_RESTORE()                \
-    do                                      \
-    {                                       \
-        if (guc_global_isr_dis_cnt == 0)    \
-            FATAL_TRAP();                   \
-                                            \
-        if (--guc_global_isr_dis_cnt == 0)  \
-            sei();                          \
-    } while(0)
+#include "btcar_common.h"
+#include "dbg_log.h"
+#include "actions.h"
 
+// Global interrupt disabling reference counter
+// Stores number of times of ISR disabling. 0 -> ISR Enabled
+uint8_t guc_global_isr_dis_cnt;        
 
+#if 0
 // -------------------------------------------------
 // --- Fuse settings:
 // ---    1111 1100   1001 1000   1101 1111 = 0xFC98DF 
@@ -66,6 +57,7 @@ uint8_t guc_global_isr_dis_cnt = 0;
 // ---            +---BODLEVEL: 100 4.1V ... 4.5V
 // --- 
 // ---- ---------------------------------------------
+ #endif
  
 #define ACTION_SELF_WRITE   0x01    // Not tabled function (hardcoded)
 #define ACTION_SELF_READ    0x02    // Not tabled function (hardcoded)
@@ -86,35 +78,12 @@ uint8_t action_self_read();
 #define LB1 0
 #define LB2 1
 
-//uint16_t      gusa_verify_buff[VERIFY_BUFF_LEN];
-#define MEM_SIGN_LEN    4
-#define DBG_BUFF_LEN    256
-
-typedef enum last_err_enum {
-    ERR_OK = 0,
-    ERR_NOK
-} LAST_ERR_t;
-
 LAST_ERR_t gt_last_err;
 
-typedef struct dbg_buff_tag {
-    uint8_t  uca_mem_sign[MEM_SIGN_LEN];
-    uint8_t  uc_rd_idx;
-    uint8_t  uc_wr_idx;
-    uint8_t  uc_isr_wr_idx;
-    uint16_t us_bytes_free_sh;
-    uint32_t ul_guard_s;
-    uint8_t  uca_data[DBG_BUFF_LEN];
-    uint32_t ul_guard_e;
-} DBG_BUFF_t;
+DBG_BUFF_t *gpt_dbg_log_buff;
 
-DBG_BUFF_t gt_csr_log_buff;
-DBG_BUFF_t gt_dbg_log_buff;
-DBG_BUFF_t gt_cmd_resp_log_buff;
-
-DBG_BUFF_t *gpt_csr_log_buff      = &gt_csr_log_buff;
-DBG_BUFF_t *gpt_dbg_log_buff      = &gt_dbg_log_buff;
-DBG_BUFF_t *gpt_cmd_resp_log_buff = &gt_cmd_resp_log_buff; 
+//DBG_BUFF_t *gpt_csr_log_buff      = &gt_csr_log_buff;
+//DBG_BUFF_t *gpt_cmd_resp_log_buff = &gt_cmd_resp_log_buff; 
 
 uint8_t guc_unit_test_flag;
 uint8_t guc_unit_test_cnt;
@@ -129,26 +98,6 @@ void _fatal_trap(uint16_t us_line_num)
 
     while(1);
 
-}
-
-
-DBG_BUFF_t* dbg_buffer_create(const char *pc_mem_sign)
-{
-    // Allocate buffer in memory
-    // Write signature to the mem_sign, init guardians
-    // return pointer to the buffer
-    return NULL;
-}
-
-void dbg_buffer_init(DBG_BUFF_t* buff, const char *pc_mem_sign)
-{
-    buff->ul_guard_s = 0xADBEEDFE;
-    buff->ul_guard_e = 0xEFBEADDE;
-    buff->us_bytes_free_sh = DBG_BUFF_LEN;
-    buff->uc_rd_idx = 0;
-    buff->uc_wr_idx = 0;
-    memcpy(buff->uca_mem_sign, pc_mem_sign, MEM_SIGN_LEN);
-    return;
 }
 
 void init_hw_unused(void)
@@ -210,237 +159,6 @@ void init_hw_io(void)
                 (1<<LED_GREEN));
 }
 
-#define STR2SIZE_STR(text)    sizeof(text), text
-
-#define DBG_LOG(text) dbg_log(__LINE__, LOCAL_FILE_ID, STR2SIZE_STR(text))
-#define DBG_LOG_ISR(text) dbg_log_isr(__LINE__, LOCAL_FILE_ID, STR2SIZE_STR(text))
-
-/* 
- * Function preserves some space in buffer in order to avoid ISR blocking during 
- * write to buffer. The function returns write index Function might be used
- * from user space only Only DBG messages might be written from both ISR and
- * user space, thus it uses hardcoded buffer. In case of requested size doesn't
- * fit to the buffer get_last_error returns NOK
- */
-uint8_t dbg_buff_preserve(uint8_t uc_pres_len){
-
-#define DBG_BUFF_MARK_SIZE      2
-#define DBG_BUFF_MARK_OVFL      0xDD
-#define DBG_BUFF_MARK_LOG       0xD5
-#define DBG_BUFF_MARK_LOG_ISR   0xD9
-/*
-      0 1 2 3 4 5 6 7
-  wr              :       wr 6
-      x x x x x x x x     size 8; free = rd - wr - 1 + size = 2
-  rd  ^                   rd 0
-
-      0 1 2 3 4 5 6 7
-  wr    :                 wr 1
-      x x x x x x x x     size 8; free = rd - wr - 1 = 4
-  rd              ^       rd 6
-
-*/
-    int16_t s_free;
-    uint8_t uc_wr_idx;
-    
-    gt_last_err = ERR_OK;
-
-    // Calc free space in buffer
-    GLOBAL_IRQ_DIS();
-    uc_wr_idx = gt_dbg_log_buff.uc_wr_idx;
-    s_free = (int16_t)gt_dbg_log_buff.uc_rd_idx - uc_wr_idx - 1;
-    
-    if (s_free < 0)
-        s_free += DBG_BUFF_LEN;
-
-    // If doesn't fit then marks overflow, set ERR_NOK and exit
-    if (s_free < uc_pres_len + DBG_BUFF_MARK_SIZE)
-    { // Overflow
-        if (s_free < DBG_BUFF_MARK_SIZE)
-        { // Already overflowed. Update Overflow mark.
-            gt_dbg_log_buff.uca_data[uc_wr_idx-1]++;
-        }
-        else
-        { // Write new overflow mark
-            gt_dbg_log_buff.uca_data[uc_wr_idx++] = DBG_BUFF_MARK_OVFL;
-            gt_dbg_log_buff.uca_data[uc_wr_idx++] = 1;
-            gt_dbg_log_buff.uc_isr_wr_idx = uc_wr_idx;
-            gt_dbg_log_buff.uc_wr_idx = uc_wr_idx;
-        }
-        GLOBAL_IRQ_RESTORE();
-        gt_last_err = ERR_NOK;
-        return 0;   // Don't care
-    }
-    
-    gt_dbg_log_buff.uc_isr_wr_idx += uc_pres_len;
-    GLOBAL_IRQ_RESTORE();
-
-    return uc_wr_idx;
-}
-
-void dbg_buff_wr_commit(void)
-{
-    GLOBAL_IRQ_DIS();
-    gt_dbg_log_buff.uc_wr_idx = gt_dbg_log_buff.uc_isr_wr_idx;
-    GLOBAL_IRQ_RESTORE();
-
-    
-    return;
-}
-
-void dbg_buff_wr_wrap(uint8_t *puc_buff_data, uint8_t uc_wr_idx, uint8_t* puc_src, uint8_t uc_len)
-{
-    uint8_t *puc_dst = &puc_buff_data[uc_wr_idx];
-    uint8_t uc_n;
-
-    // Get number of bytes till idx wrap
-    uc_n = DBG_BUFF_LEN - uc_wr_idx;
-    if (uc_n > uc_len) uc_n = uc_len;
-
-    uc_len -= uc_n;
-
-    // write till index wrap
-    while (uc_n--)
-    {
-        *puc_dst++ = *puc_src++;
-    }
-
-    // wrap around and continue if needed
-    puc_dst = &puc_buff_data[0];
-    while (uc_len--)
-    {
-        *puc_dst++ = *puc_src++;
-    }
-
-    return;
-}
-
-/*
- *    Function might be interrupted by ISR, thus it first preserves
- *    memory in the buffer and then commit it
- */
-void dbg_log(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_text)
-{
-    uint8_t uc_wr_idx;
-    uint8_t uc_tot_len;
-
-    // Sanity check
-    if (t_text_size > UINT8_MAX)
-        FATAL_TRAP();
-
-    // preserve space in buffer
-        // Calculate total msg size
-        uc_tot_len = (uint8_t)
-                1 + //  DBG Log mark
-                1 + //  File ID
-                2 + //  Line
-                1 + //  Size
-                t_text_size;
-
-    uc_wr_idx = dbg_buff_preserve(uc_tot_len);
-    if (gt_last_err == ERR_NOK)
-        return;
-    
-    // Write header
-    gpt_dbg_log_buff->uca_data[uc_wr_idx++] = DBG_BUFF_MARK_LOG;
-    gpt_dbg_log_buff->uca_data[uc_wr_idx++] = uc_fid;
-    gpt_dbg_log_buff->uca_data[uc_wr_idx++] = us_line  & 0xFF;
-    gpt_dbg_log_buff->uca_data[uc_wr_idx++] = us_line  >> 8;
-    gpt_dbg_log_buff->uca_data[uc_wr_idx++] = t_text_size;
-
-    // Write body
-    dbg_buff_wr_wrap(gpt_dbg_log_buff->uca_data, uc_wr_idx, (uint8_t*)pc_text, (uint8_t) t_text_size);
-
-    // Commit log message
-    dbg_buff_wr_commit();
-
-    return;
-}
-
-/*
- *    Function might be interrupted by ISR, thus it first preserves
- *    memory in the buffer and then commit it
- */
-void dbg_log_isr(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_text)
-{
-    uint8_t uc_isr_wr_idx;
-    uint8_t uc_tot_len;
-    uint8_t uc_user_wr_ongoing;
-    int16_t s_free;
-
-    // Sanity check
-    if (t_text_size > UINT8_MAX)
-        FATAL_TRAP();
-
-    // Preserve space in buffer
-    
-    // Calculate total msg size
-    uc_tot_len = (uint8_t)
-            1 + //  DBG Log mark
-            1 + //  File ID
-            2 + //  Line
-            1 + //  Size
-            t_text_size;
-
-    uc_isr_wr_idx = gt_dbg_log_buff.uc_isr_wr_idx;
-    
-    // If ISR and non-ISR write indices are not equal that means 
-    // user space write is ongoing. Thus NOT need to update user WR idx.
-    // It will be updated by user space by WR commit
-    uc_user_wr_ongoing = (uc_isr_wr_idx != gt_dbg_log_buff.uc_wr_idx);
-
-    s_free = (int16_t)gt_dbg_log_buff.uc_rd_idx - uc_isr_wr_idx - 1;
-    if (s_free < 0)
-    {
-        s_free += DBG_BUFF_LEN;
-    }        
-
-    // If doesn't fit then marks overflow, set ERR_NOK and exit
-    if (s_free < uc_tot_len + DBG_BUFF_MARK_SIZE)
-    { // Overflow
-        if (s_free < DBG_BUFF_MARK_SIZE)
-        { // Already overflowed. Update Overflow mark.
-            gt_dbg_log_buff.uca_data[uc_isr_wr_idx-1]++;
-        }
-        else
-        { // Write new overflow mark
-            gt_dbg_log_buff.uca_data[uc_isr_wr_idx++] = DBG_BUFF_MARK_OVFL;
-            gt_dbg_log_buff.uca_data[uc_isr_wr_idx++] = 1;
-            gt_dbg_log_buff.uc_isr_wr_idx = uc_isr_wr_idx;
-            
-            if (!uc_user_wr_ongoing)
-            {
-                gt_dbg_log_buff.uc_wr_idx = uc_isr_wr_idx;   
-            }
-        }
-        return;
-    }
-
-    gt_dbg_log_buff.uc_isr_wr_idx = uc_isr_wr_idx + uc_tot_len;
-   
-    if (!uc_user_wr_ongoing)
-    {
-        gt_dbg_log_buff.uc_wr_idx = uc_isr_wr_idx + uc_tot_len;
-    }
-
-    // Write Header
-    gpt_dbg_log_buff->uca_data[uc_isr_wr_idx++] = DBG_BUFF_MARK_LOG_ISR;
-    gpt_dbg_log_buff->uca_data[uc_isr_wr_idx++] = uc_fid;
-    gpt_dbg_log_buff->uca_data[uc_isr_wr_idx++] = us_line  & 0xFF;
-    gpt_dbg_log_buff->uca_data[uc_isr_wr_idx++] = us_line  >> 8;
-    gpt_dbg_log_buff->uca_data[uc_isr_wr_idx++] = t_text_size;
-
-    // Write Body
-    dbg_buff_wr_wrap(gpt_dbg_log_buff->uca_data, uc_isr_wr_idx, (uint8_t*)pc_text, (uint8_t) t_text_size);
-
-    return;
-}
-
-void log_test(){
-
-    DBG_LOG("Hello from mars");
-
-}
 
 /* Simulate single message unload from dbg buffer */
 void unit_test_dbg_buf_unload(void)
@@ -485,7 +203,6 @@ void unit_test_dbg_buf_unload(void)
 
     return;    
 }
-
 
 void unit_test_dbg_log(void)
 {
@@ -628,11 +345,8 @@ void unit_test_dbg_log(void)
     unit_test_dbg_buf_unload();
     unit_test_dbg_buf_unload();
     
-    
-   
 
 }
-
 
 
 //---------------------------------------------
@@ -655,7 +369,7 @@ int main() {
     MCUCR = (1<<IVSEL);
 
     // --------------------------------------------------
-    // --- Init perephirial devices
+    // --- Init perepherial devices
     // --------------------------------------------------
     init_hw_unused();
 
@@ -665,13 +379,11 @@ int main() {
                 
     leds_control(0xFF);
 
-    dbg_buffer_init(gpt_csr_log_buff,      "CSRL");
-    dbg_buffer_init(gpt_dbg_log_buff,      "DBGL");
-    dbg_buffer_init(gpt_cmd_resp_log_buff, "CRSP");
+    dbg_buffer_init();
 
     unit_test_dbg_log();
     DBG_LOG("BTCAR mcu started");
-//    csr_log("Interface initiated");
+
 
     // RX timer - Timer3. Incrementing counting till UINT16_MAX
     TCCR3B = RX_CNT_TCCRxB;
@@ -886,114 +598,19 @@ void leds_control(uint8_t uc_leds){
 
 // Self write bodyguard
 void dummy1(){
-	uint8_t uc_i;
+    uint8_t uc_i;
 
-	for (uc_i = 0; uc_i < 200; uc_i++){
-		while(1){
-	        __asm__ __volatile__ ("nop" ::);
-	        __asm__ __volatile__ ("nop" ::);
-	        __asm__ __volatile__ ("nop" ::);
-	        __asm__ __volatile__ ("nop" ::);
-			guc_mem_guard = 0;
-		}
-	}
-	guc_mem_guard = 0;
-}
-
-#if 0   // prohibit PGM write on a development phase. Just for safety.
-uint8_t action_self_write(){
-
-	uint8_t   uc_i, uc_j;
-//  Hardcoded 0x01, action_self_write
-    UINT16  t_len;
-    UINT16  t_addr_h;
-    UINT16  t_addr;
-    UINT16  t_data;
-
-    uint16_t  us_i;
-
-    // 0x01 0xAAAAAAAA      0xLLLL          
-    // CMD  Address0 32bit  Length0 16bit
-    //
-    // 0xDDDD   0xDDDD  ... 0xDDDD   0xDDDD
-    // Data00    Data01 ... DataN0    DataN1
-    
-    // Read Address 
-    FIFO_RD(&t_addr.b[0]);
-    FIFO_RD(&t_addr.b[1]);
-    FIFO_RD(&t_addr_h.b[0]); // Ignored
-    FIFO_RD(&t_addr_h.b[1]); // Ignored
-
-    // Read Length
-    FIFO_RD(&t_len.b[0]);
-    FIFO_RD(&t_len.b[1]);
-
-    // t_addr_h ignored
-    
-	// Hello from Paranoia - FLASH guard
-	for(uc_i = 0; uc_i < 20; uc_i++){
-		for(uc_j = 0; uc_j < 20; uc_j++){
-			if (!guc_mem_guard) while(1);
-		}
-	}
-
-	if (!guc_mem_guard) while(1);
-	if (t_addr_h.b[1] != 0) while(1);
-
-    // Main Loop
-    while(t_len.s > 0){
-        if (t_addr.s >= 0x7000) break;
-
-		if (!guc_mem_guard) while(1);
-        boot_page_erase(t_addr.s);
-        boot_spm_busy_wait();      // Wait until the memory is erased.
-
-        for (us_i = 0; us_i < SPM_PAGESIZE; us_i += 2){
-            if (t_len.s){
-                // Read low data from fifo
-                FIFO_RD(&t_data.b[0]);
-                t_len.s--;
-            }else{
-                t_data.b[0] = 0xCC;
-            }
-
-            // Read high data from fifo
-            if (t_len.s){
-                FIFO_RD(&t_data.b[1]);
-                t_len.s--;
-            }else{
-                t_data.b[1] = 0xCC;
-            }
-            
-            // Read high data from fifo
-            boot_page_fill(t_addr.s + us_i, t_data.s);
+    for (uc_i = 0; uc_i < 200; uc_i++){
+        while(1){
+            __asm__ __volatile__ ("nop" ::);
+            __asm__ __volatile__ ("nop" ::);
+            __asm__ __volatile__ ("nop" ::);
+            __asm__ __volatile__ ("nop" ::);
+            guc_mem_guard = 0;
         }
-
-		if (!guc_mem_guard) while(1);
-        boot_page_write (t_addr.s); // Store buffer in flash page.
-        boot_spm_busy_wait();       // Wait until the memory is written.
-
-        // Reenable RWW-section again. We need this if we want to jump back
-        // to the application after bootloading.
-        boot_rww_enable();
-
-        // Update address
-        t_addr.s += us_i;
     }
-	guc_mem_guard = 0;
-	guc_mem_guard = 0;
-	guc_mem_guard = 0;
-
-    FIFO_WR(0x77);
-
-    return 0;
+    guc_mem_guard = 0;
 }
-#else
-uint8_t action_self_write()
-{
-    return 0;
-}
-#endif
 
 uint8_t action_self_read(){
 

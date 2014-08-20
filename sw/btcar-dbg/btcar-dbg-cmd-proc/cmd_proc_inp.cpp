@@ -169,12 +169,14 @@ void cmd_auto_complete(WCHAR *pc_cmd_line, int n_cmd_len, int *pn_cur_pos){
 
         }while(*ca_char);// while same chars in possible commands
 
+/*
         if (*ca_last_token == 0){
             // If command exact match and no other token exist
             // Confirm command by adding " -"
             *pn_cur_pos = strcharins(pc_cmd_line, ' ', *pn_cur_pos, n_cmd_len);
             *pn_cur_pos = strcharins(pc_cmd_line, '-', *pn_cur_pos, n_cmd_len);
         }
+*/
 
     }else{
         // Command not recognized and no other token exist

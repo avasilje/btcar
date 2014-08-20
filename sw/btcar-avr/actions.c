@@ -41,7 +41,7 @@ __attribute__ ((section (".actions")))
 uint8_t action_leds_on(){
 
     uint8_t   uc_data;
-	uint8_t   uc_len;
+    uint8_t   uc_len;
 
     // 0x16 0x01 0xRG
     // CMD  Len  LED ON mask
@@ -234,7 +234,7 @@ __attribute__ ((section (".actions")))
 uint8_t action_signature(){
 
     uint8_t uc_i;
-	uint8_t uc_len;
+    uint8_t uc_len;
 
     // Read cmd len (must be 0)
     FIFO_RD(&uc_len);

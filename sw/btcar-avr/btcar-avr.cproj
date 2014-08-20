@@ -165,6 +165,18 @@
     <Compile Include="actions.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="btcar_common.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="dbg_log.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="dbg_log.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="local_fids.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="main.c">
       <SubType>compile</SubType>
     </Compile>
