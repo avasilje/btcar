@@ -10,10 +10,13 @@
  *    
  *
  ******************************************************************************/
-//TODO: 
-// +2. move DBG staff into dedicated file.
-// +3. Move unittest staff to dedicated file.
-//  4. Relocate main for unit test. Make file structure more convnient
+//TODO:
+// 1. Define DBG buffer for responses
+// 2. Change responses from write to FIFO to write to BUFF
+// 3. Write DBG buff unload function
+// 4. Write WR to buff function that triggered upon I/O TXE edge
+// 5. Adapt btcar-dbg application to work with multi buffers
+// 6. Make file structure more convenient
 
 /* Define DBG log signature */
 #include "local_fids.h"
@@ -31,7 +34,9 @@
 
 // Global interrupt disabling reference counter
 // Stores number of times of ISR disabling. 0 -> ISR Enabled
-uint8_t guc_global_isr_dis_cnt;        
+uint8_t guc_global_isr_dis_cnt;
+
+extern void unit_tests_main();
 
 #if 0
 // -------------------------------------------------
@@ -159,9 +164,9 @@ void init_hw_io(void)
 }
 
 
-
 //---------------------------------------------
-int main_av() {
+int real_main()
+{
 
     uint8_t uc_i;
 
@@ -192,9 +197,6 @@ int main_av() {
 
     dbg_buffer_init();
 
-    DBG_LOG("BTCAR mcu started");
-
-
     // RX timer - Timer3. Incrementing counting till UINT16_MAX
     TCCR3B = RX_CNT_TCCRxB;
     TCNT3  = RX_CNT_RELOAD;
@@ -211,7 +213,6 @@ int main_av() {
                               "    nop\n    nop\n    nop\n    nop\n"
                                 ::);
     }
-
 
     guc_mcu_cmd = 0;
 
@@ -231,6 +232,8 @@ int main_av() {
 
     // Enable Interrupts
     GLOBAL_IRQ_FORCE_EN();
+
+    DBG_LOG("BTCAR mcu started");
 
     while(1){
         if (guc_mcu_cmd) {
@@ -465,4 +468,23 @@ uint8_t action_self_read(){
     return 0;
 }
 
+
+/*
+ * Dummy main used to redefine entry point for unit tests
+ * Linker option "-Wl, -ereal_main" doesn't work. Reason unknown.
+ */
+int main()
+{
+    
+#ifndef UNIT_TEST
+#define UNIT_TEST 0
+#endif
+
+#if (UNIT_TEST)
+    unit_tests_main();
+#else
+    real_main();
+#endif // UNIT_TEST
+
+}
 
