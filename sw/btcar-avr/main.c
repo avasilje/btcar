@@ -1,8 +1,44 @@
-#include <avr/interrupt.h>
+/*******************************************************************************
+ *  
+ *  PROJECT
+ *    BTCar
+ *
+ *  FILE
+ *    dbg_log.c
+ *
+ *  DESCRIPTION
+ *    
+ *
+ ******************************************************************************/
+//TODO:
+// 1. Define DBG buffer for responses
+// 2. Change responses from write to FIFO to write to BUFF
+// 3. Write DBG buff unload function
+// 4. Write WR to buff function that triggered upon I/O TXE edge
+// 5. Adapt btcar-dbg application to work with multi buffers
+// 6. Make file structure more convenient
+
+/* Define DBG log signature */
+#include "local_fids.h"
+#define LOCAL_FILE_ID FID_MAIN
+
+#include <stdint.h>
+#include <string.h>
+
 #include <avr/pgmspace.h>
 #include <avr/boot.h> 
+
+#include "btcar_common.h"
+#include "dbg_log.h"
 #include "actions.h"
 
+// Global interrupt disabling reference counter
+// Stores number of times of ISR disabling. 0 -> ISR Enabled
+uint8_t guc_global_isr_dis_cnt;
+
+extern void unit_tests_main();
+
+#if 0
 // -------------------------------------------------
 // --- Fuse settings:
 // ---    1111 1100   1001 1000   1101 1111 = 0xFC98DF 
@@ -27,6 +63,7 @@
 // ---            +---BODLEVEL: 100 4.1V ... 4.5V
 // --- 
 // ---- ---------------------------------------------
+ #endif
  
 #define ACTION_SELF_WRITE   0x01    // Not tabled function (hardcoded)
 #define ACTION_SELF_READ    0x02    // Not tabled function (hardcoded)
@@ -34,23 +71,104 @@
 
 //------ Global variables ---------------------
 HW_INFO gt_hw_info __attribute__ ((section (".hw_info")));
-uint8 volatile guc_mcu_cmd;
-uint8 volatile guc_mem_guard;
-uint16 gus_trap_line;
+uint8_t volatile guc_mcu_cmd;
+uint8_t volatile guc_mem_guard;
+uint16_t gus_trap_line;
 
 //------- Internal function declaration -------
-uint8 proceed_command(uint8 uc_cmd);
-uint8 action_ping();
-uint8 action_self_write();
-uint8 action_self_read();
+uint8_t proceed_command(uint8_t uc_cmd);
+uint8_t action_ping();
+//uint8_t action_self_write();
+uint8_t action_self_read();
 
 #define LB1 0
 #define LB2 1
 
-//---------------------------------------------
-int main() {
+LAST_ERR_t gt_last_err;
 
-    uint8 uc_i;
+DBG_BUFF_t *gpt_dbg_log_buff;
+
+//DBG_BUFF_t *gpt_csr_log_buff      = &gt_csr_log_buff;
+//DBG_BUFF_t *gpt_cmd_resp_log_buff = &gt_cmd_resp_log_buff; 
+
+
+void _fatal_trap(uint16_t us_line_num)
+{
+
+    gus_trap_line = us_line_num;
+
+    // clear all hazards on external pins
+    // ...
+
+    while(1);
+
+}
+
+void init_hw_unused(void)
+{
+    // Set unused pins to pull-up inputs
+    PORTA |= (1 << PINA7);  // Due to schematic Bug
+
+    PORTB |= (1 << PINB7);
+
+    PORTG |= (1 << PING0) |
+    (1 << PING2) |
+    (1 << PING4) |
+    (1 << PING5);
+
+    PORTF |= (1 << PINF0) |
+    (1 << PINF1) |
+    (1 << PINF2) |
+    (1 << PINF3);
+
+    PORTH |= (1 << PINH4) | // ADDR_3_UNUSED_MASK
+    (1 << PINH5) |
+    (1 << PINH6) |
+    (1 << PINH7);
+
+    PORTJ |= (1 << PINJ0) |
+    (1 << PINJ1) |
+    (1 << PINJ7);
+
+}
+
+void init_hw_fifo(void)
+{
+
+    // Init USB FIFO control pins
+    // USB SI       (active low) - output 1
+    // RD output 1  (active low)
+    // WR output 0  (active high)
+    // TXF# pullup input
+    // RXE# pullup input
+
+    FIFO_CNTR_PORT |= (0<<FIFO_CNTR_WR )|
+    (1<<FIFO_CNTR_RD )|
+    (1<<FIFO_CNTR_RXF)|
+    (1<<FIFO_CNTR_TXE)|
+    (1<<FIFO_CNTR_SI );
+
+    FIFO_CNTR_DIR  |= (1<<FIFO_CNTR_RD )|
+    (1<<FIFO_CNTR_WR )|
+    (1<<FIFO_CNTR_SI );
+
+    // FIFO data bus tristated
+
+}
+
+void init_hw_io(void)
+{
+    // Init LED control pins (all OFF)
+    LED_DIR |= ((1<<LED_RED)|
+                (1<<LED_GREEN));
+}
+
+
+//---------------------------------------------
+int real_main()
+{
+
+    uint8_t uc_i;
 
     // --------------------------------------------------
     // --- Protect bootloader from internal update 
@@ -62,101 +180,27 @@ int main() {
 
 //    boot_lock_bits_set( (1<<BLB12) | (1<<BLB11) |  (1<<LB1) | (1<<LB2));
 
-    // --------------------------------------------------
-    // --- Init perephirial devices
-    // --------------------------------------------------
-
-    // Set unused pins to pull-up inputs
-    PORTA |= (1 << PINA7);  // Due to schematic Bug 
-
-    PORTB |= (1 << PINB7);
-
-    PORTG |= (1 << PING0) |
-             (1 << PING2) |
-             (1 << PING4) |
-             (1 << PING5);
-
-    PORTF |= (1 << PINF0) |
-             (1 << PINF1) |
-             (1 << PINF2) |
-             (1 << PINF3);
-
-    PORTH |= (1 << PINH4) | // ADDR_3_UNUSED_MASK
-             (1 << PINH5) |
-             (1 << PINH6) |
-             (1 << PINH7);
-
-    PORTJ |= (1 << PINJ0) |
-             (1 << PINJ1) |
-             (1 << PINJ7);
-
     // Move Interrupt vectors to BootLoader
     MCUCR = (1<<IVCE);
     MCUCR = (1<<IVSEL);
+
+    // --------------------------------------------------
+    // --- Init perepherial devices
+    // --------------------------------------------------
+    init_hw_unused();
+
+    init_hw_fifo();
+
+    init_hw_io();
+                
+    leds_control(0xFF);
+
+    dbg_buffer_init();
 
     // RX timer - Timer3. Incrementing counting till UINT16_MAX
     TCCR3B = RX_CNT_TCCRxB;
     TCNT3  = RX_CNT_RELOAD;
     ENABLE_RX_TIMER;
-
-    // Address and data bus output zeros
-    DATA_L_DIR = 0xFF;
-    DATA_H_DIR = 0xFF;
-
-    ADDR_0_DIR = 0xFF;
-    ADDR_1_DIR = 0xFF;
-    ADDR_2_DIR = 0xFF;
-    ADDR_3_DIR = 0xFF;
-
-    // Init USB FIFO control pins
-    // USB SI       (active low) - output 1
-    // RD output 1  (active low)
-    // WR output 0  (active high)
-    // TXF# pullup input
-    // RXE# pullup input
-    FIFO_CNTR_PORT |= (0<<FIFO_CNTR_WR )|
-                      (1<<FIFO_CNTR_RD )|
-                      (1<<FIFO_CNTR_RXF)|
-                      (1<<FIFO_CNTR_TXE)|
-                      (1<<FIFO_CNTR_SI );
-
-    FIFO_CNTR_DIR  |= (1<<FIFO_CNTR_RD )|
-                      (1<<FIFO_CNTR_WR )|
-                      (1<<FIFO_CNTR_SI );
-
-    // FIFO data bus tristated
-
-    // Init LED control pins (all OFF)
-    LED_DIR |= ((1<<LED_RED)| 
-                (1<<LED_GREEN));
-
-    // Init Control port
-    // Power enable (active low) - output 1
-    // SIMM reset   (active low) - output 1
-    // FWR01        (active low) - output 1
-    // FWR1         (active low) - output 1
-    // BLK0         (active low) - output 1
-    // BLK1         (active low) - output 1
-    // FRD          (active low) - output 1
-    
-
-    CNTR_PORT |= (0 << CNTRL_FWR01  )|
-                 (0 << CNTRL_FWR1   )| 
-                 (0 << CNTRL_BLK0   )|
-                 (0 << CNTRL_BLK1   )|
-                 (0 << CNTRL_FRD    )|
-                 (0 << CNTRL_SRST   )|
-                 (1 << CNTRL_POWER  );
-
-    CNTR_DIR |= (1 << CNTRL_FWR01  )|
-                (1 << CNTRL_FWR1   )| 
-                (1 << CNTRL_BLK0   )|
-                (1 << CNTRL_BLK1   )|
-                (1 << CNTRL_FRD    )|
-                (1 << CNTRL_SRST   )|
-                (1 << CNTRL_POWER  );
-                
-    leds_control(0xFF);
 
     // Wait a little just in case
     for(uc_i = 0; uc_i < 255U; uc_i++){
@@ -169,7 +213,6 @@ int main() {
                               "    nop\n    nop\n    nop\n    nop\n"
                                 ::);
     }
-
 
     guc_mcu_cmd = 0;
 
@@ -188,7 +231,9 @@ int main() {
 
 
     // Enable Interrupts
-    sei();
+    GLOBAL_IRQ_FORCE_EN();
+
+    DBG_LOG("BTCAR mcu started");
 
     while(1){
         if (guc_mcu_cmd) {
@@ -199,25 +244,14 @@ int main() {
     return 0;
 }
 
-void FATAL_TRAP(uint16 us_line_num){
 
-	gus_trap_line = us_line_num;
-
-	// clear all hazards on external pins
-	// ...
-
-	while(1);
-
-}
-
-
-uint8 proceed_command(uint8 uc_mcu_cmd){
+uint8_t proceed_command(uint8_t uc_mcu_cmd){
 
     T_ACTION    *pt_action;
-    uint8 (*pf_func)();
-    uint8 uc_act_cmd;
-    uint8 uc_ret_cmd;
-	uint8 uc_i;
+    uint8_t (*pf_func)();
+    uint8_t uc_act_cmd;
+    uint8_t uc_ret_cmd;
+//    uint8_t uc_i;
 
 
     DISABLE_RX_TIMER;
@@ -235,7 +269,7 @@ uint8 proceed_command(uint8 uc_mcu_cmd){
     // Setup action table pointer
     pt_action = gta_action_table;
 
-	guc_mem_guard = 0;
+    guc_mem_guard = 0;
     // --------------------------------------------------
     // --- Non changable function for Firmware Update
     // --------------------------------------------------
@@ -244,26 +278,28 @@ uint8 proceed_command(uint8 uc_mcu_cmd){
         case ACTION_PING : 
             uc_ret_cmd = action_ping();
             break;
-        case ACTION_SELF_WRITE:
-
-			// Paranoic Flash write protection
-			for (uc_i = 0; uc_i < 200; uc_i++){
-				if (uc_mcu_cmd != ACTION_SELF_WRITE) {
-					return 0;
-				}
-			}
-			if (uc_i != 200) return 0;
-			guc_mem_guard = 1;
-            uc_ret_cmd = action_self_write();
-            break;
+/*
+//         case ACTION_SELF_WRITE:
+// 
+//             // Paranoic Flash write protection
+//             for (uc_i = 0; uc_i < 200; uc_i++){
+//                 if (uc_mcu_cmd != ACTION_SELF_WRITE) {
+//                 return 0;
+//                 }
+//             }
+//             if (uc_i != 200) return 0;
+//             guc_mem_guard = 1;
+//             uc_ret_cmd = action_self_write();
+//             break;
+*/
         case ACTION_SELF_READ:
             uc_ret_cmd = action_self_read();
             break;
         default:
 
             // Check is action table valid
-            pf_func = (uint8 (*)())pgm_read_word_near(&pt_action->pf_func);
-            if (pf_func == (uint8 (*)())0xFEED) {
+            pf_func = (uint8_t (*)())pgm_read_word_near(&pt_action->pf_func);
+            if (pf_func == (uint8_t (*)())0xFEED) {
     
                 // Find action in table
                 do{
@@ -275,7 +311,7 @@ uint8 proceed_command(uint8 uc_mcu_cmd){
 
                     if (uc_mcu_cmd == uc_act_cmd){
                         // get functor from table
-                        pf_func = (uint8 (*)())pgm_read_word_near(&pt_action->pf_func);
+                        pf_func = (uint8_t (*)())pgm_read_word_near(&pt_action->pf_func);
                         uc_ret_cmd = pf_func();
                         break;
                     }
@@ -291,12 +327,12 @@ uint8 proceed_command(uint8 uc_mcu_cmd){
     return uc_ret_cmd;
 }
 
-uint8 action_ping(){
+uint8_t action_ping(){
 
     // 0x11 0xNN        0xDD
     // CMD  DATA LEN    DATA
 
-    uint8   uc_data_len, uc_data;
+    uint8_t   uc_data_len, uc_data;
     
     // Write header 
     FIFO_WR(0x03);
@@ -354,9 +390,9 @@ ISR(TIMER3_OVF_vect) {
     TCNT3 = RX_CNT_RELOAD;
 }
 
-void leds_control(uint8 uc_leds){
+void leds_control(uint8_t uc_leds){
 
-    uint8 uc_temp;
+    uint8_t uc_temp;
 
     uc_temp = LED_PORT;
     // Set Green LED
@@ -377,116 +413,27 @@ void leds_control(uint8 uc_leds){
 
 // Self write bodyguard
 void dummy1(){
-	uint8 uc_i;
+    uint8_t uc_i;
 
-	for (uc_i = 0; uc_i < 200; uc_i++){
-		while(1){
-	        __asm__ __volatile__ ("nop" ::);
-	        __asm__ __volatile__ ("nop" ::);
-	        __asm__ __volatile__ ("nop" ::);
-	        __asm__ __volatile__ ("nop" ::);
-			guc_mem_guard = 0;
-		}
-	}
-	guc_mem_guard = 0;
-}
-
-uint8 action_self_write(){
-
-	uint8   uc_i, uc_j;
-//  Hardcoded 0x01, action_self_write
-    UINT16  t_len;
-    UINT16  t_addr_h;
-    UINT16  t_addr;
-    UINT16  t_data;
-
-    uint16  us_i;
-
-    // 0x01 0xAAAAAAAA      0xLLLL          
-    // CMD  Address0 32bit  Length0 16bit
-    //
-    // 0xDDDD   0xDDDD  ... 0xDDDD   0xDDDD
-    // Data00    Data01 ... DataN0    DataN1
-    
-    // Read Address 
-    FIFO_RD(&t_addr.b[0]);
-    FIFO_RD(&t_addr.b[1]);
-    FIFO_RD(&t_addr_h.b[0]); // Ignored
-    FIFO_RD(&t_addr_h.b[1]); // Ignored
-
-    // Read Length
-    FIFO_RD(&t_len.b[0]);
-    FIFO_RD(&t_len.b[1]);
-
-    // t_addr_h ignored
-    
-	// Hello from Paranoia - FLASH guard
-	for(uc_i = 0; uc_i < 20; uc_i++){
-		for(uc_j = 0; uc_j < 20; uc_j++){
-			if (!guc_mem_guard) while(1);
-		}
-	}
-
-	if (!guc_mem_guard) while(1);
-	if (t_addr_h.b[1] != 0) while(1);
-
-    // Main Loop
-    while(t_len.s > 0){
-        if (t_addr.s >= 0x7000) break;
-
-		if (!guc_mem_guard) while(1);
-        boot_page_erase(t_addr.s);
-        boot_spm_busy_wait();      // Wait until the memory is erased.
-
-        for (us_i = 0; us_i < SPM_PAGESIZE; us_i += 2){
-            if (t_len.s){
-                // Read low data from fifo
-                FIFO_RD(&t_data.b[0]);
-                t_len.s--;
-            }else{
-                t_data.b[0] = 0xCC;
-            }
-
-            // Read high data from fifo
-            if (t_len.s){
-                FIFO_RD(&t_data.b[1]);
-                t_len.s--;
-            }else{
-                t_data.b[1] = 0xCC;
-            }
-            
-            // Read high data from fifo
-            boot_page_fill(t_addr.s + us_i, t_data.s);
+    for (uc_i = 0; uc_i < 200; uc_i++){
+        while(1){
+            __asm__ __volatile__ ("nop" ::);
+            __asm__ __volatile__ ("nop" ::);
+            __asm__ __volatile__ ("nop" ::);
+            __asm__ __volatile__ ("nop" ::);
+            guc_mem_guard = 0;
         }
-
-		if (!guc_mem_guard) while(1);
-        boot_page_write (t_addr.s); // Store buffer in flash page.
-        boot_spm_busy_wait();       // Wait until the memory is written.
-
-        // Reenable RWW-section again. We need this if we want to jump back
-        // to the application after bootloading.
-        boot_rww_enable();
-
-        // Update address
-        t_addr.s += us_i;
     }
-	guc_mem_guard = 0;
-	guc_mem_guard = 0;
-	guc_mem_guard = 0;
-
-    FIFO_WR(0x77);
-
-    return 0;
+    guc_mem_guard = 0;
 }
 
-
-uint8 action_self_read(){
+uint8_t action_self_read(){
 
 //  Hardcoded 0x02, action_self_read
     UINT16  t_len;
     UINT16  t_addr_h;
     UINT16  t_addr;
-    uint8   uc_data;
+    uint8_t   uc_data;
 
     // 0x01 0xAAAAAAAA      0xLLLL          
     // CMD  Address0 32bit  Length0 16bit
@@ -520,3 +467,24 @@ uint8 action_self_read(){
 
     return 0;
 }
+
+
+/*
+ * Dummy main used to redefine entry point for unit tests
+ * Linker option "-Wl, -ereal_main" doesn't work. Reason unknown.
+ */
+int main()
+{
+    
+#ifndef UNIT_TEST
+#define UNIT_TEST 0
+#endif
+
+#if (UNIT_TEST)
+    unit_tests_main();
+#else
+    real_main();
+#endif // UNIT_TEST
+
+}
+

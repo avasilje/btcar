@@ -5,10 +5,16 @@ Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "btcar-avr", "btcar-avr.cpro
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug_simul_unit_test|AVR = Debug_simul_unit_test|AVR
+		Debug_simul|AVR = Debug_simul|AVR
 		Debug|AVR = Debug|AVR
 		Release|AVR = Release|AVR
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3244EBCB-55AF-43FB-8F1D-B52089C7B5DD}.Debug_simul_unit_test|AVR.ActiveCfg = Debug_simul_unit_test|AVR
+		{3244EBCB-55AF-43FB-8F1D-B52089C7B5DD}.Debug_simul_unit_test|AVR.Build.0 = Debug_simul_unit_test|AVR
+		{3244EBCB-55AF-43FB-8F1D-B52089C7B5DD}.Debug_simul|AVR.ActiveCfg = Debug_simul|AVR
+		{3244EBCB-55AF-43FB-8F1D-B52089C7B5DD}.Debug_simul|AVR.Build.0 = Debug_simul|AVR
 		{3244EBCB-55AF-43FB-8F1D-B52089C7B5DD}.Debug|AVR.ActiveCfg = Debug|AVR
 		{3244EBCB-55AF-43FB-8F1D-B52089C7B5DD}.Debug|AVR.Build.0 = Debug|AVR
 		{3244EBCB-55AF-43FB-8F1D-B52089C7B5DD}.Release|AVR.ActiveCfg = Release|AVR
