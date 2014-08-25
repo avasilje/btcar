@@ -235,6 +235,41 @@ uint8_t action_single_write(){
 }
 #endif
 
+/*
+ * Function read remaining of CMD from in buffer and writes response
+ * to CMD_RESP buffer
+ */
+
+uint8_t tmp_action_signature(){
+
+    uint8_t uc_i;
+    uint8_t uc_len;
+
+    // Read cmd len (must be 0)
+    FIFO_RD(&uc_len);
+
+    // 0x11 0xLL    0xMM    0xMM    0xCC
+    // CMD  Length  Major   Minor   String name
+
+    // Write header
+    FIFO_WR(0x11);
+
+    // Write Length
+    FIFO_WR(SIGN_LEN+2);
+
+    // Write Major Version
+    FIFO_WR(gt_hw_info.uc_ver_maj);
+
+    // Write Minor Version
+    FIFO_WR(gt_hw_info.uc_ver_min);
+
+    for(uc_i = 0; uc_i < SIGN_LEN; uc_i++){
+        FIFO_WR(gt_hw_info.ca_signature[uc_i]);
+    }
+
+    return 0;
+}
+
 __attribute__ ((section (".actions"))) 
 uint8_t action_signature(){
 

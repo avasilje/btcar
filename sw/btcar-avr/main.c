@@ -11,10 +11,10 @@
  *
  ******************************************************************************/
 //TODO:
-// 1. Define DBG buffer for responses
-// 2. Change responses from write to FIFO to write to BUFF
+// 1. Rename DBG_BUFF related functions for DBG_LOG and CMD_RSP
+// 2. Write WR to buff function that triggered upon I/O TXE edge
 // 3. Write DBG buff unload function
-// 4. Write WR to buff function that triggered upon I/O TXE edge
+// 4. Change responses from write to FIFO to write to BUFF
 // 5. Adapt btcar-dbg application to work with multi buffers
 // 6. Make file structure more convenient
 

@@ -13,6 +13,7 @@
 
 #define DBG_BUFF_MARK_SIZE      2
 #define DBG_BUFF_MARK_OVFL      0xDD
+#define DBG_BUFF_MARK_RSP       0xD2
 #define DBG_BUFF_MARK_LOG       0xD5
 #define DBG_BUFF_MARK_LOG_ISR   0xD9
 
