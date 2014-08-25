@@ -26,9 +26,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="io_proc_measure.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="io_proc_devcmd.h">
       <Filter>Header Files</Filter>
     </ClInclude>

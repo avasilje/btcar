@@ -1,8 +1,12 @@
 
+#define IO_RX_MSG_LEN 1024
+#define IO_TX_MSG_LEN 1024
+
 #define HANDLE_NOT_IDLE         0
 #define HADLE_IO_CMD            1       // incoming command from IO pipe
 #define HADLE_DEV_RESP          2       // incoming response from device
-#define HANDLE_LAST_HANDLE      3
+#define HANDLE_IO_PIPE          3
+#define HANDLE_LAST_HANDLE      4
 
 #define HANDLES_NUM HANDLE_LAST_HANDLE
 
@@ -20,12 +24,15 @@ extern FT_HANDLE gh_btcar_dev;
 #define FL_REQ_MUST   2
 
 #define RESP_STR_LEN 1024
+#define IO_UI_INIT_STR_LEN 1024
 
 typedef struct t_io_flags_tag{
     DWORD   dev_conn       : 8;
     DWORD   dev_conn_req   : 8;
     DWORD   io_conn        : 8;
     DWORD   io_conn_req    : 8;
+    DWORD   io_ui          : 8;
+    DWORD   io_ui_req      : 8;
     DWORD   exit           : 8;
 }T_IO_FLAGS;
 
@@ -47,6 +54,8 @@ void io_close();
 int  io_command_processing();
 void io_disconnect();
 int  io_connection_check();
+int  io_ui_status_check();
+
 int  io_pipe_tx();
 int  io_pipe_rx_init();
 

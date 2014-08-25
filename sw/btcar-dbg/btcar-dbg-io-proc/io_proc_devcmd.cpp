@@ -2,7 +2,7 @@
 **
 ** SRC-FILE     :   io_devcmd.cpp
 **                                        
-** PROJECT      :   DLE
+** PROJECT      :   BTCAR
 **                                                                
 ** SRC-VERSION  :   
 **              
@@ -12,7 +12,7 @@
 **
 ** DESCRIPTION  :   The functions set to convert user commands from CMD_PROC_CMD_LIB to device commands
 **                  Typicall function extract data from incoming user's command, repack them into
-**                  binary packet and sends to DLE device
+**                  binary packet and sends to the device
 **                  
 ** COPYRIGHT    :   (c) 2011 Andrejs Vasiljevs. All rights reserved.
 **

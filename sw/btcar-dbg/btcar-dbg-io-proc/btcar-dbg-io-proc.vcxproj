@@ -78,7 +78,6 @@
     <ClInclude Include="io_proc.h" />
     <ClInclude Include="io_proc_devcmd.h" />
     <ClInclude Include="io_proc_devresp.h" />
-    <ClInclude Include="io_proc_measure.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

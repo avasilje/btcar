@@ -307,7 +307,7 @@ int send_single_command(int argc, WCHAR *argv[], int n_arg_num){
 ** DATE           : 01/20/2011
 ** AUTHOR         : AV
 **
-** DESCRIPTION    : Initiate DLE IO asynchronous read
+** DESCRIPTION    : Initiate IO asynchronous read
 **
 ** PARAMETERS     : 
 **
@@ -354,7 +354,7 @@ int init_rx_msg_read(){
 ** DATE           : 01/20/2011
 ** AUTHOR         : AV
 **
-** DESCRIPTION    : Receives & printout DLE IO incoming messages
+** DESCRIPTION    : Receives & printout device IO incoming messages
 **
 ** PARAMETERS     : 
 **

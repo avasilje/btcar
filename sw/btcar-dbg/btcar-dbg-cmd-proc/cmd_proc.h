@@ -2,7 +2,7 @@
 **
 ** SRC-FILE     :   cmd_proc.h
 **                                        
-** PROJECT      :   DLE user interface
+** PROJECT      :   user interface
 **                                                                
 ** SRC-VERSION  :   0
 **              
