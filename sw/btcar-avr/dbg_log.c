@@ -16,9 +16,9 @@
 #include "dbg_log.h"
 #include "dbg_log_int.h"
 
-DBG_BUFF_t gt_csr_log_buff;
+//DBG_BUFF_t gt_csr_log_buff;
 DBG_BUFF_t gt_dbg_log_buff;
-DBG_BUFF_t gt_cmd_resp_log_buff;
+DBG_BUFF_t gt_cmd_rsp_buff;
 
 
 /* 
@@ -116,6 +116,62 @@ void dbg_buff_wr_wrap(uint8_t *puc_buff_data, uint8_t uc_wr_idx, uint8_t* puc_sr
     return;
 }
 
+uint8_t cmd_resp_wr(uint8_t *puc_src, size_t t_inp_len)
+{
+    uint8_t uc_wr_idx, uc_len;
+    int16_t s_free;
+
+    uc_wr_idx = gt_cmd_rsp_buff.uc_tmp_wr_idx;
+    uc_len = (uint8_t)t_inp_len;
+
+    // sanity check
+    if (t_inp_len > UINT8_MAX) return ERR_NOK;
+
+    // Check if header fits to buffer
+    s_free = (int16_t)gt_cmd_rsp_buff.uc_rd_idx - uc_wr_idx - 1;
+    if (s_free < 0) s_free += DBG_BUFF_LEN;
+
+    // Is first fragment of response?
+    if (uc_wr_idx == gt_cmd_rsp_buff.uc_wr_idx)
+    { // Add header on very first write
+        if (s_free < uc_len + 2) // Packet header size + payload
+            return ERR_NOK;
+
+        gt_cmd_rsp_buff.uca_data[uc_wr_idx++] = DBG_BUFF_MARK_RSP;
+        gt_cmd_rsp_buff.uca_data[uc_wr_idx++] = 0;  // Init packet length
+    }
+    else
+    { // Next consequent write. 
+        if (s_free < uc_len)
+            return ERR_NOK;
+    }
+
+    dbg_buff_wr_wrap(gt_cmd_rsp_buff.uca_data, uc_wr_idx, puc_src, uc_len);
+
+    gt_cmd_rsp_buff.uc_tmp_wr_idx = uc_wr_idx + uc_len;
+
+    return ERR_OK;
+}
+
+void cmd_resp_wr_commit(void)
+{
+    uint8_t uc_wr_idx, uc_tmp_wr_idx;
+    int16_t s_len;
+
+    uc_wr_idx = gt_cmd_rsp_buff.uc_wr_idx;
+    uc_tmp_wr_idx = gt_cmd_rsp_buff.uc_tmp_wr_idx;
+
+    s_len = (int16_t)uc_tmp_wr_idx - uc_wr_idx;
+    if (s_len < 0) s_len += DBG_BUFF_LEN;
+
+    // Write packet length to header
+    uc_wr_idx ++;
+    gt_cmd_rsp_buff.uca_data[uc_wr_idx] = (uint8_t)s_len - 2; // -2 pck header
+
+    gt_cmd_rsp_buff.uc_wr_idx = uc_tmp_wr_idx;
+    
+}
+
 /*
  *    The function writes LOG message to DBG buffer form user space.
  *    The function might be interrupted by ISR, thus it first preserves
@@ -124,22 +180,21 @@ void dbg_buff_wr_wrap(uint8_t *puc_buff_data, uint8_t uc_wr_idx, uint8_t* puc_sr
 void dbg_log(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_text)
 {
     uint8_t uc_wr_idx;
-    uint8_t uc_tot_len;
+    size_t  t_tot_len;
 
     // Sanity check
-    if (t_text_size > UINT8_MAX)
-        FATAL_TRAP();
+    ASSERT(t_text_size < UINT8_MAX);
 
     // preserve space in buffer
         // Calculate total msg size
-        uc_tot_len = (uint8_t)
+        t_tot_len = (uint8_t)
                 1 + //  DBG Log mark
                 1 + //  File ID
                 2 + //  Line
                 1 + //  Size
                 t_text_size;
 
-    uc_wr_idx = dbg_buff_preserve(uc_tot_len);
+    uc_wr_idx = dbg_buff_preserve((uint8_t)t_tot_len);
     if (gt_last_err == ERR_NOK)
         return;
     
@@ -151,7 +206,7 @@ void dbg_log(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_text
     gt_dbg_log_buff.uca_data[uc_wr_idx++] = t_text_size;
 
     // Write body
-    dbg_buff_wr_wrap(gt_dbg_log_buff.uca_data, uc_wr_idx, (uint8_t*)pc_text, (uint8_t) t_text_size);
+    dbg_buff_wr_wrap(gt_dbg_log_buff.uca_data, uc_wr_idx, (uint8_t*)pc_text, (uint8_t)t_text_size);
 
     // Commit log message
     dbg_buff_wr_commit();
@@ -171,8 +226,7 @@ void dbg_log_isr(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_
     int16_t s_free;
 
     // Sanity check
-    if (t_text_size > UINT8_MAX)
-        FATAL_TRAP();
+    ASSERT(t_text_size < UINT8_MAX);
 
     // Preserve space in buffer
     
@@ -238,17 +292,6 @@ void dbg_log_isr(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_
     return;
 }
 
-DBG_BUFF_t* dbg_buffer_create(uint8_t buff_id)
-{
-    switch (buff_id)
-    {
-        case DBG_BUFF_ID_DBGL:
-            return &gt_dbg_log_buff;
-        default:
-            return NULL;
-    }
-}
-
 
 void dbg_buffer_init()
 {
@@ -260,6 +303,15 @@ void dbg_buffer_init()
     gt_dbg_log_buff.uc_rd_idx = 0;
     gt_dbg_log_buff.uc_wr_idx = 0;
     memcpy(gt_dbg_log_buff.uca_mem_sign, "DBGL", MEM_SIGN_LEN);
+
+    // Initialize Command Response buffer
+    gt_cmd_rsp_buff.ul_guard_s = 0xADBEEDFE;
+    gt_cmd_rsp_buff.ul_guard_e = 0xEFBEADDE;
+    gt_cmd_rsp_buff.us_bytes_free_sh = DBG_BUFF_LEN;
+    gt_cmd_rsp_buff.uc_rd_idx = 0;
+    gt_cmd_rsp_buff.uc_wr_idx = 0;
+    memcpy(gt_cmd_rsp_buff.uca_mem_sign, "CRSP", MEM_SIGN_LEN);
+
     
     return;
 }

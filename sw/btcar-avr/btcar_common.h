@@ -52,5 +52,8 @@ do                                      \
 extern void _fatal_trap(uint16_t us_line_num);
 #define FATAL_TRAP() _fatal_trap(__LINE__)
 
+#define ASSERT(cond) \
+    if (!(cond)) FATAL_TRAP()
+
 #endif // __BTCAR_COMMON_H__
 
