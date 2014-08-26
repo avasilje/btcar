@@ -79,6 +79,32 @@ void wmain(int argc, WCHAR *argv[]){
     gt_flags.io_ui   = FL_CLR;
     gt_flags.exit    = FL_CLR;
 
+
+	{
+#define UI_INIT_SEPARATORS L" :\r\t"
+#define MAX_CMD_ARG_LEN 1024
+
+		// C:<CMD_NAME>\r
+		//     \tF:<FIELD_NAME>   <TYPE>   <LEN>   <VAL>\r
+		//     \tF:<FIELD_NAME>   <TYPE>   <LEN>   <VAL>\r
+
+		E_CMD_FIELD_TYPE	e_type;
+		DWORD				dw_len;
+		DWORD				dw_val;
+		int			n_ch_num;
+
+
+		WCHAR   ca_ui_init_cmd[MAX_CMD_ARG_LEN] = L"C:CMD\n\tF:  Field1  1 2 3 \n   \tF:    Field2 000 222 1\n";
+		WCHAR   ca_tmp[MAX_CMD_ARG_LEN];
+
+		int n_rc = FALSE;
+
+		n_ch_num = swscanf_s(ca_ui_init_cmd, L"%d", ca_tmp);
+		n_ch_num = swscanf_s(ca_ui_init_cmd, L"F:%s\n");
+
+	}
+
+
     n_arg_num = get_command_line_args(argc, argv, 1);
  
     if (gn_action == SHOW_OPTIONS_HELP){
@@ -372,7 +398,7 @@ int send_to_io_pipe(WCHAR *p_io_msg)
     n_rc = WriteFile(
         gh_io_pipe,                     //__in         HANDLE hFile,
         p_io_msg,                       //__in         LPCVOID lpBuffer,
-        (int)wcslen(p_io_msg) << 1,     //__in         DWORD nNumberOfBytesToWrite,
+        wcslen(p_io_msg)*2 + 2,         //__in         DWORD nNumberOfBytesToWrite, (+2 null termination)
         &dw_n,                          //__out_opt    LPDWORD lpNumberOfBytesWritten,
         &gt_io_tx_overlap               //__inout_opt  LPOVERLAPPED lpOverlapped
         );
@@ -394,18 +420,58 @@ int send_to_io_pipe(WCHAR *p_io_msg)
 
 } // End of TX MSG block
 
+void proceed_ui_msg_cmd(WCHAR *pc_ui_cmd)
+{
+#if 0
+#define UI_INIT_SEPARATORS L" :\r\t"
+#define MAX_CMD_ARG_LEN 1024
+
+	// C:<CMD_NAME>\r
+	//     \tF:<FIELD_NAME>   <TYPE>   <LEN>   <VAL>\r
+	//     \tF:<FIELD_NAME>   <TYPE>   <LEN>   <VAL>\r
+
+	WCHAR   ca_cmd[MAX_CMD_ARG_LEN];
+
+	WCHAR   *pc_cmd_token, *pc_cmd_line_end;
+
+	int n_rc = FALSE;
+
+
+	swscanf_s(pc_ui_cmd, "C:%s ");
+
+	// Make command local copy to use STRTOK
+	if (!(*pc_cmd_arg)) return NULL;
+	wcscpy_s(ca_cmd, MAX_CMD_ARG_LEN, pc_cmd_arg);
+
+	// Read command
+	pc_cmd_token = wcstok(ca_cmd, UI_INIT_SEPARATORS);
+	if (!(*pc_cmd_token)) return NULL;
+
+	if (*pc_cmd_token != L'C')
+	{
+
+	}
+
+#endif
+}
+
+
 int proceed_ui_msg(WCHAR *pc_ui_cmd)
 {
     
-    if (pc_ui_cmd[0] == 'S')
+    if (pc_ui_cmd[0] == L'S')
     { // UI init START
+		// Parse welcome message
+		// ...
         send_to_io_pipe(L"ACK");
     }
-    else if (pc_ui_cmd[0] == 'C')
+    else if (pc_ui_cmd[0] == L'C')
     { // UI init CMD. Add command to cmd list
+
+		proceed_ui_msg_cmd(pc_ui_cmd);
         send_to_io_pipe(L"ACK");
     }
-    else if (pc_ui_cmd[0] == 'E')
+    else if (pc_ui_cmd[0] == L'E')
     { // UI init END
         send_to_io_pipe(L"READY");
     }
@@ -434,7 +500,7 @@ int proceed_rx_msg(int *pn_prompt_restore){
     DWORD   dw_bytes_received;
 
     n_rc = GetOverlappedResult(
-        gh_io_pipe,             // __in  HANDLE hFile,
+        gh_io_pipe,             //__in  HANDLE hFile,
         &gt_io_rx_overlap,      //__in   LPOVERLAPPED lpOverlapped,
         &dw_bytes_received,     //__out  LPDWORD lpNumberOfBytesTransferred,
         FALSE                   //__in   BOOL bWait
@@ -460,9 +526,8 @@ int proceed_rx_msg(int *pn_prompt_restore){
     // Handle incoming message depend on IO UI state
     if (gt_flags.io_ui == FL_CLR)
     {
-        wprintf(L"\n UI init msg: %s\n", gca_cmd_io_resp);
-        *pn_prompt_restore = TRUE;
-
+		wprintf(L"UI init msg: %s\n", gca_cmd_io_resp);
+		*pn_prompt_restore = TRUE;
         proceed_ui_msg(gca_cmd_io_resp);
 
     }

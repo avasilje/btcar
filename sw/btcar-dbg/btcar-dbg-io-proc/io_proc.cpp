@@ -101,9 +101,9 @@ int init_io_ui(void)
     else 
     {
         T_CP_CMD_FIELD  *pt_curr_field;
-
+		!!!!!!!! rework that bull shit !!!!!!!!!
         // Compose transaction for a full command including all fields
-        swprintf(gca_io_ui_init_str, IO_UI_INIT_STR_LEN, L"C: %s\n", pt_curr_cmd->pc_name);
+        swprintf(gca_io_ui_init_str, IO_UI_INIT_STR_LEN, L"C:%s\n", pt_curr_cmd->pc_name);
 
         pt_curr_field = pt_curr_cmd->pt_fields;
         while(pt_curr_field->pc_name)
@@ -139,8 +139,7 @@ int init_io_ui(void)
         gt_io_ui.pt_curr_cmd = pt_curr_cmd + 1;
     }
 
-    wprintf(L"IO ---> UI: %s", gca_io_ui_init_str);
-
+	wprintf(L"UI INIT <-- IO : %s\n", gca_io_ui_init_str);
     io_pipe_tx(gca_io_ui_init_str);
 
     return TRUE;
@@ -150,8 +149,6 @@ int io_ui_processing()
 {
     int n_rc;
     DWORD dw_bytes_transf;
-
-wprintf(L"AV temp --- %s @ %d, flag %d\n", L"io_ui_processing()", __LINE__, gt_flags.io_conn);
 
     // Get Overlapped result
     n_rc = GetOverlappedResult(
@@ -167,6 +164,15 @@ wprintf(L"AV temp --- %s @ %d, flag %d\n", L"io_ui_processing()", __LINE__, gt_f
         gt_flags.io_conn = FL_FALL;
         return FALSE;
     }
+
+
+
+    if (gca_cmd_buff[(dw_bytes_transf>>1)-1] != L'\0')
+    {
+        wprintf(L"Warn: Non terminated msg received\n", __LINE__);
+    }
+
+	wprintf(L"UI INIT --> IO : %s\n", gca_cmd_buff);
 
     if (_wcsicmp(gca_cmd_buff, L"INIT") == 0)
     {
@@ -193,8 +199,6 @@ int io_command_processing()
 
     int n_rc;
     DWORD dw_bytes_transf;
-
-wprintf(L"AV temp --- %s @ %d, flag %d\n", L"io_command_processing", __LINE__, gt_flags.io_conn);
 
     // Get Overlapped result
     n_rc = GetOverlappedResult(
@@ -223,11 +227,11 @@ wprintf(L"AV temp --- %s @ %d, flag %d\n", L"io_command_processing", __LINE__, g
     // If command not found check for exit or unknow command
     if (!pt_cp_cmd || !pt_cp_cmd->pt_fields)
     {
-        wprintf(L"Unrecognized command %s. Try again\n", gca_cmd_buff);
+        wprintf(L"UI --> IO :Unrecognized command %s. Try again\n", gca_cmd_buff);
     }
     else
     {
-        wprintf(L"cmd --> io : %s\n", gca_cmd_buff);
+        wprintf(L"UI --> IO : %s\n", gca_cmd_buff);
                
         // Lookup & execute command functor
         // TODO: replace for registered functions lookup
@@ -432,7 +436,6 @@ void btcar_dev_close()
 }
 void io_close()
 {
-wprintf(L"AV temp --- %s @ %d, flag %d\n", L"io_close", __LINE__, gt_flags.io_conn);
 
     // Close IO pipe
     if (gh_io_pipe != INVALID_HANDLE_VALUE) 
@@ -553,7 +556,6 @@ int btcar_dev_connect()
 
     // Blink with led
     // ...
-
 
 btcar_dev_connect_cleanup:
 
@@ -877,8 +879,6 @@ int io_pipe_rx_init(){
 
     int n_rc, n_gle;
 
-wprintf(L"AV temp ------ %s @ %d, flag %d\n", L"io_pipe_rx_init", __LINE__, gt_flags.io_conn);
-
     n_rc = ReadFile(
         gh_io_pipe,                             //__in         HANDLE hFile,
         gca_cmd_buff,                           //__out        LPVOID lpBuffer,
@@ -902,50 +902,11 @@ wprintf(L"AV temp ------ %s @ %d, flag %d\n", L"io_pipe_rx_init", __LINE__, gt_f
 
 }
 
-#if 0
-T_CP_CMD gta_cmd_lib[] = {
-    { L"DEV_SIGN"                 , (T_CP_CMD_FIELD*)&gt_cmd_dev_sign},
-    { L"INIT"                     , (T_CP_CMD_FIELD*)&gt_cmd_init },
-    { L"MLED"                     , (T_CP_CMD_FIELD*)&gt_cmd_mcu_led },
-    { 0, 0 }
-
-struct t_cmd_mcu_led_tag{
-    T_CP_CMD_FIELD   green;
-    T_CP_CMD_FIELD   red;
-    T_CP_CMD_FIELD   eomsg;
-};
-
-t_cmd_mcu_led_tag gt_cmd_mcu_led = {
-    {L"GREEN"  ,  CFT_NUM,      0,           0},
-    {L"RED"    ,  CFT_NUM,      0,           0},
-    {NULL, CFT_LAST, 0, 0}
-};
-
-
-extern struct t_cmd_mcu_led_tag gt_cmd_mcu_led;
-
-typedef struct cmd_field_tag{
-
-    WCHAR   *pc_name;
-    E_CMD_FIELD_TYPE e_type;
-
-    int     n_len;
-    union {
-        DWORD   dw_val;
-        WCHAR   *pc_str;
-    };
-} T_CP_CMD_FIELD;
-
-#endif
-
 
 int io_ui_status_check(void)
 {
 
-//    int n_rc, n_gle;
-
-    // IO pipe must be connected 
-    // Try to initialize UI over IO pipe if not initialized yet
+    // Try to initialize UI over IO pipe if not initialized yet. IO pipe must be connected 
     if ((gt_flags.io_ui == FL_CLR || gt_flags.io_ui == FL_UNDEF) && gt_flags.io_conn != FL_SET)
     {
 
@@ -978,8 +939,6 @@ int io_connection_check()
 
     int n_rc, n_gle;
 
-wprintf(L"AV temp --- %s @ %d, flag %d\n", L"-->io_connection_check ", __LINE__, gt_flags.io_conn);
-
     if (gt_flags.io_conn == FL_CLR || gt_flags.io_conn == FL_UNDEF)
     {
 
@@ -1008,13 +967,11 @@ wprintf(L"AV temp --- %s @ %d, flag %d\n", L"-->io_connection_check ", __LINE__,
             SetEvent(gha_events[HANDLE_IO_PIPE]);
         }
 
-wprintf(L"AV temp --- %s @ %d, flag %d\n", L"io_connection_check", __LINE__, gt_flags.io_conn);
         return TRUE;
     } // End of Connection CLR
 
     if (gt_flags.io_conn == FL_SET)
     {
-wprintf(L"AV temp --- %s @ %d, flag %d\n", L"io_connection_check", __LINE__, gt_flags.io_conn);
         return TRUE;
     } // End of Connection SET
 
@@ -1032,7 +989,6 @@ wprintf(L"AV temp --- %s @ %d, flag %d\n", L"io_connection_check", __LINE__, gt_
             gt_flags.io_conn = FL_CLR;
         }
 
-wprintf(L"AV temp --- %s @ %d, flag %d\n", L"io_connection_check", __LINE__, gt_flags.io_conn);
         return TRUE;
     } // End of Connection RISE
 
@@ -1050,85 +1006,9 @@ wprintf(L"AV temp --- %s @ %d, flag %d\n", L"io_connection_check", __LINE__, gt_
 
         SetEvent(gha_events[HANDLE_IO_PIPE]);
 
-wprintf(L"AV temp --- %s @ %d, flag %d\n", L"io_connection_check", __LINE__, gt_flags.io_conn);
         return TRUE;
     } // End of Connection FALL
 
-#if 0
-// ----------
-    int n_rc, n_gle;
-
-    // Try to connect to IO pipe if not connected and connection is required
-    if ( (gt_flags.io_conn == FL_CLR || gt_flags.io_conn == FL_UNDEF) && gt_flags.io_conn_req & FL_REQ_SHOULD)
-    {
-        n_rc = io_connect();            
-        if (!n_rc)
-        {
-            return FALSE;   // Critical error
-        }
-
-    }
-
-    // Check device status transition
-    if (gt_flags.io_conn == FL_RISE)
-    {
-        // IO pipe connected. Try to initiate very first rad transaction
-        n_rc = io_pipe_rx_init();
-        if (n_rc)
-        {
-            wprintf(L"IO pipe connected\n");
-            gt_flags.io_conn = FL_SET;
-            return TRUE;
-        }
-        else
-        {
-            gt_flags.io_conn = FL_CLR;
-        }
-    }
-
-    if (gt_flags.io_conn == FL_FALL)
-    {
-        wprintf(L"IO pipe disconnected\n");
-        gt_flags.io_conn = FL_CLR;
-        CloseHandle(gh_io_pipe);
-
-        // Reset IO_UI 
-        gt_flags.io_ui = FL_FALL; 
-    }
-
-    if (gt_flags.io_conn == FL_SET)
-    {
-        HANDLE h_temp;
-
-        // Try to connect to CMD PROC IO pipe again
-        // If everything is OK, CreateFiles have to return ERROR_PIPE_BUSY
-        h_temp = CreateFile( 
-            gca_pipe_name,                                          // pipe name 
-            GENERIC_READ | GENERIC_WRITE | FILE_WRITE_ATTRIBUTES,   // read and write access 
-            0,                                                      // no sharing 
-            NULL,                                                   // default security attributes
-            OPEN_EXISTING,                                          // opens existing pipe 
-            FILE_FLAG_OVERLAPPED,                                   // attributes 
-            NULL);                                                  // no template file 
-
-        if (h_temp == INVALID_HANDLE_VALUE) 
-        {
-            n_gle = GetLastError();
-            if (n_gle == ERROR_PIPE_BUSY)
-            {
-                return TRUE;
-            }
-        }
-        else
-        {
-            CloseHandle(h_temp);
-        }
-
-        gt_flags.io_conn = FL_FALL;
-    }
-#endif // 0
-
-wprintf(L"AV temp --- %s @ %d, flag %d\n", L"io_connection_check", __LINE__, gt_flags.io_conn);
 
     // PC should never hits here
     return FALSE;
