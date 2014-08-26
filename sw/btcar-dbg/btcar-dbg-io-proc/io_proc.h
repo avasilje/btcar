@@ -13,27 +13,22 @@
 extern HANDLE gha_events[HANDLES_NUM];
 extern FT_HANDLE gh_btcar_dev;
 
-#define FL_CLR      0
-#define FL_RISE     1
-#define FL_FALL     2
-#define FL_SET      3
-#define FL_UNDEF    4
-
-#define FL_REQ_NONE   0
-#define FL_REQ_SHOULD 1
-#define FL_REQ_MUST   2
+typedef enum e_flag_tag {
+    FL_CLR      = 0,
+    FL_RISE     = 1,
+    FL_FALL     = 2,
+    FL_SET      = 3,
+    FL_UNDEF    = 4
+} E_FLAG;
 
 #define RESP_STR_LEN 1024
 #define IO_UI_INIT_STR_LEN 1024
 
 typedef struct t_io_flags_tag{
-    DWORD   dev_conn       : 8;
-    DWORD   dev_conn_req   : 8;
-    DWORD   io_conn        : 8;
-    DWORD   io_conn_req    : 8;
-    DWORD   io_ui          : 8;
-    DWORD   io_ui_req      : 8;
-    DWORD   exit           : 8;
+    E_FLAG   dev_conn;
+    E_FLAG   io_conn;
+    E_FLAG   io_ui;
+    E_FLAG   exit;
 }T_IO_FLAGS;
 
 extern T_IO_FLAGS gt_flags;
@@ -52,11 +47,10 @@ extern HANDLE gh_dump_file;
 
 void io_close();
 int  io_command_processing();
-void io_disconnect();
 int  io_connection_check();
 int  io_ui_status_check();
 
-int  io_pipe_tx();
+int  io_pipe_tx(WCHAR *pc_io_msg);
 int  io_pipe_rx_init();
 
 void btcar_dev_close();

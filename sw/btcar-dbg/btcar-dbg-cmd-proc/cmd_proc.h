@@ -29,9 +29,11 @@
 #define FL_UNDEF        4
 
 typedef struct flags_tag{
+    DWORD   exit           : 8;
     DWORD   verbose        : 8;
     DWORD   io_auto_start  : 8;
-    DWORD   io_connected   : 8;
+    DWORD   io_conn        : 8;
+    DWORD   io_ui          : 8;
 }CMD_PROC_FLAGS;
 
 #define HANDLE_KEYBOARD         0
