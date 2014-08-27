@@ -25,6 +25,7 @@
 #include "FTD2XX.H"
 #include "cmd_line_wc.h"
 #include "cmd_lib.h"
+#include "cmd_proc.h"
 #include "io_proc_devcmd.h"
 #include "io_proc_devresp.h"
 #include "io_proc.h"
@@ -45,6 +46,11 @@ OVERLAPPED gt_io_tx_overlap;
 WCHAR gca_cmd_buff[CMD_PROC_CMD_BUFF_LEN];
 
 WCHAR gca_io_cmd_resp[RESP_STR_LEN];
+
+/* Internal global for MSG and STR composition */
+#define IO_UI_INIT_STR_LEN 1024
+#define IO_UI_INIT_MSG_LEN 1024
+BYTE  gba_io_ui_init_msg[IO_UI_INIT_MSG_LEN];
 WCHAR gca_io_ui_init_str[IO_UI_INIT_STR_LEN];
 
 #define IO_PIPENAME_LEN 64
@@ -70,15 +76,61 @@ int open_device_uart(int n_dev_indx, FT_HANDLE *ph_device);
 typedef struct t_io_ui_tag{
 
     T_CP_CMD        *pt_curr_cmd;
-    T_CP_CMD_FIELD  *pt_curr_field;
 
 }T_IO_UI;
 
 T_IO_UI gt_io_ui;
 
+
+BYTE *add_tlv_str (BYTE *pb_msg_buff, E_UI_INIT_TLV_TYPE e_type, WCHAR *pc_str)
+{
+    size_t t_str_len_b;
+
+    t_str_len_b = wcslen(pc_str) * 2;
+
+    if (t_str_len_b > MAXBYTE)
+        return pb_msg_buff;
+
+    *pb_msg_buff++ = (BYTE)e_type;          // type
+    *pb_msg_buff++ = (BYTE)t_str_len_b;     // len in bytes
+    memcpy(pb_msg_buff, pc_str, t_str_len_b);
+    return (pb_msg_buff + t_str_len_b);
+
+}
+
+BYTE *add_tlv_dword (BYTE *pb_msg_buff, E_UI_INIT_TLV_TYPE e_type, DWORD dw_val)
+{
+    size_t t_len = sizeof(DWORD);
+
+    *pb_msg_buff++ = (BYTE)e_type;          // type
+    *pb_msg_buff++ = (BYTE)t_len;   // len in bytes
+    memcpy(pb_msg_buff, &dw_val, t_len);
+    return (pb_msg_buff + t_len);
+}
+
+size_t terminate_tlv_list (BYTE *pb_msg_buff)
+{
+    size_t t_msg_len;
+
+    *pb_msg_buff++ = UI_INIT_TLV_TYPE_NONE;
+
+    if (t_msg_len > IO_UI_INIT_MSG_LEN || t_msg_len == 0)
+    {
+        wprintf(L"Att: Something wrong @ %d\n", __LINE__);
+        return TRUE;
+    }
+
+    t_msg_len = pb_msg_buff - &gba_io_ui_init_msg[0];
+    return t_msg_len;
+}
+
 int init_io_ui(void)
 {
+
     T_CP_CMD        *pt_curr_cmd;
+    T_UI_INIT_TLV   t_tlv;
+    size_t          t_msg_len;
+    BYTE            *pb_msg_buff = &gba_io_ui_init_msg[0];
 
     pt_curr_cmd   = gt_io_ui.pt_curr_cmd;
 
@@ -86,11 +138,10 @@ int init_io_ui(void)
     {
         // Initialize current pointer on very first call after UI reset
         gt_io_ui.pt_curr_cmd = gta_cmd_lib;
-        gt_io_ui.pt_curr_field = gta_cmd_lib[0].pt_fields;  // TODO : is in use ???
 
         // Send an init command to UI
         swprintf(gca_io_ui_init_str, IO_UI_INIT_STR_LEN, L"S: Welcome message\n");
-
+        
     }
     else if (!pt_curr_cmd->pc_name)
     {
@@ -100,17 +151,19 @@ int init_io_ui(void)
     }
     else 
     {
+        DWORD   dw_fld_cnt;
         T_CP_CMD_FIELD  *pt_curr_field;
-		!!!!!!!! rework that bull shit !!!!!!!!!
-        // Compose transaction for a full command including all fields
-        swprintf(gca_io_ui_init_str, IO_UI_INIT_STR_LEN, L"C:%s\n", pt_curr_cmd->pc_name);
+        
+        pb_msg_buff = add_tlv_str(pb_msg_buff, UI_INIT_TLV_TYPE_CMD_NAME, pt_curr_cmd->pc_name);
 
         pt_curr_field = pt_curr_cmd->pt_fields;
+        dw_fld_cnt = 0;
         while(pt_curr_field->pc_name)
         {
             switch(pt_curr_field->e_type)
             {
             case CFT_NUM:
+                dw_fld_cnt++;
                 swprintf(gca_io_ui_init_str, IO_UI_INIT_STR_LEN, L"%s\tF:%-20s %d %d %d\n", 
                     gca_io_ui_init_str,
                     pt_curr_field->pc_name,
@@ -118,8 +171,15 @@ int init_io_ui(void)
                     pt_curr_field->n_len,
                     pt_curr_field->dw_val);
 
+                pb_msg_buff = add_tlv_str(pb_msg_buff, UI_INIT_TLV_TYPE_FLD_NAME, pt_curr_field->pc_name);
+
+                pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_INIT_TLV_TYPE_FLD_TYPE, (DWORD)pt_curr_field->e_type);
+                pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_INIT_TLV_TYPE_FLD_LEN,  (DWORD)pt_curr_field->n_len);
+                pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_INIT_TLV_TYPE_FLD_VAL,  (DWORD)pt_curr_field->dw_val);
+
                 break;
             case CFT_TXT:
+                dw_fld_cnt++;
                 swprintf(gca_io_ui_init_str, IO_UI_INIT_STR_LEN, L"%s\tF:%-20s %d %d %s\n", 
                     gca_io_ui_init_str,
                     pt_curr_field->pc_name,
@@ -136,11 +196,16 @@ int init_io_ui(void)
             pt_curr_field++;
         } // End of while over all fields
 
+        // Add number of fields as a check sum
+        pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_INIT_TLV_TYPE_FLD_CNT,  (DWORD)dw_fld_cnt);
         gt_io_ui.pt_curr_cmd = pt_curr_cmd + 1;
     }
 
 	wprintf(L"UI INIT <-- IO : %s\n", gca_io_ui_init_str);
-    io_pipe_tx(gca_io_ui_init_str);
+
+    t_msg_len = terminate_tlv_list(pb_msg_buff);
+
+    io_pipe_tx_byte(gba_io_ui_init_msg, t_msg_len);
 
     return TRUE;
 }
@@ -1016,7 +1081,8 @@ int io_connection_check()
 }
 
 
-int btcar_dev_clear_fifos(){
+int btcar_dev_clear_fifos()
+{
 
     FT_STATUS t_ft_st;
 
@@ -1034,7 +1100,8 @@ int btcar_dev_clear_fifos(){
     return (t_ft_st == FT_OK);
 }
 
-int btcar_dev_resp_rx_init(DWORD dw_dev_resp_req_len ){
+int btcar_dev_resp_rx_init(DWORD dw_dev_resp_req_len )
+{
 
     int n_rc, n_gle;
 
@@ -1062,19 +1129,47 @@ int btcar_dev_resp_rx_init(DWORD dw_dev_resp_req_len ){
 }
 
 
-int io_pipe_tx(WCHAR *pc_io_msg){
+int io_pipe_tx_str(WCHAR *pc_io_str)
+{
 
     int n_rc, n_gle;
 
-    if (wcslen(pc_io_msg) == 0)
+    if (wcslen(pc_io_str) == 0)
         return TRUE;
+
+    DWORD dw_n;
+
+    // Write back command response to UI
+    n_rc = WriteFile(
+        gh_io_pipe,                     //__in         HANDLE hFile,
+        pc_io_str,                      //__in         LPCVOID lpBuffer,
+        wcslen(pc_io_str)*2+2,          //__in         DWORD nNumberOfBytesToWrite,
+        &dw_n,                          //__out_opt    LPDWORD lpNumberOfBytesWritten,
+        &gt_io_tx_overlap);             //__inout_opt  LPOVERLAPPED lpOverlapped
+
+    if (!n_rc)
+    {
+        n_gle = GetLastError();
+        if (n_gle != ERROR_IO_PENDING)
+        {
+            gt_flags.io_conn = FL_FALL;
+        }
+    }
+
+    return TRUE;
+}
+
+int io_pipe_tx_byte(BYTE *pc_io_msg, size_t t_msg_len)
+{
+
+    int n_rc, n_gle;
 
     DWORD dw_n;
     // Write back command response to UI
     n_rc = WriteFile(
         gh_io_pipe,                     //__in         HANDLE hFile,
         pc_io_msg,                      //__in         LPCVOID lpBuffer,
-        wcslen(pc_io_msg)*2+2,          //__in         DWORD nNumberOfBytesToWrite, // why +2 ??? zero terminating
+        t_msg_len,                      //__in         DWORD nNumberOfBytesToWrite, // why +2 ??? zero terminating
         &dw_n,                          //__out_opt    LPDWORD lpNumberOfBytesWritten,
         &gt_io_tx_overlap);             //__inout_opt  LPOVERLAPPED lpOverlapped
 

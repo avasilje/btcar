@@ -22,7 +22,6 @@ typedef enum e_flag_tag {
 } E_FLAG;
 
 #define RESP_STR_LEN 1024
-#define IO_UI_INIT_STR_LEN 1024
 
 typedef struct t_io_flags_tag{
     E_FLAG   dev_conn;
