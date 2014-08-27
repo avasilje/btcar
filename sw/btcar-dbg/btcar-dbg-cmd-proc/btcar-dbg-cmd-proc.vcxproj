@@ -76,6 +76,7 @@
   <ItemGroup>
     <ClInclude Include="cmd_proc.h" />
     <ClInclude Include="cmd_proc_inp.h" />
+    <ClInclude Include="cmd_proc_ui.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

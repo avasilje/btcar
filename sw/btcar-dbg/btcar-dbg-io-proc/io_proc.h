@@ -49,7 +49,8 @@ int  io_command_processing();
 int  io_connection_check();
 int  io_ui_status_check();
 
-int  io_pipe_tx(WCHAR *pc_io_msg);
+int  io_pipe_tx_str(WCHAR *pc_io_msg);
+int  io_pipe_tx_byte(BYTE *pc_io_msg, size_t t_msg_len);
 int  io_pipe_rx_init();
 
 void btcar_dev_close();

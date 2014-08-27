@@ -48,6 +48,120 @@ WCHAR gca_cmd_io_resp[IO_RX_MSG_LEN];
 
 const WCHAR gca_pipe_name[] = L"\\\\.\\pipe\\btcar_io_ui";     // AV TODO: rework to input argument
 
+
+typedef struct t_io_ui_tag{
+	T_CP_CMD   *pt_curr_cmd;
+}T_IO_UI;
+
+T_IO_UI gt_io_ui;
+
+#define MAX_IO_UI_CMD   100
+T_CP_CMD    gta_io_ui_cmd[MAX_IO_UI_CMD];
+
+
+void dump_cmd_fields (T_CP_CMD_FIELD* pt_cmd_fields)
+{
+	T_CP_CMD_FIELD	*pt_field = pt_cmd_fields;
+
+	while (pt_field->pc_name)
+	{
+		if (pt_field->e_type == CFT_TXT)
+		{
+			wprintf(L"\tF:%-20s %d %d %s\n",
+				pt_field->pc_name,
+				pt_field->e_type,
+				pt_field->n_len,
+				pt_field->pc_str);
+		}
+		else if (pt_field->e_type == CFT_NUM)
+		{
+			wprintf(L"\tF:%-20s %d %d %d\n",
+				pt_field->pc_name,
+				pt_field->e_type,
+				pt_field->n_len,
+				pt_field->dw_val);
+		}
+		pt_field++;
+	}
+
+	return;
+}
+
+void dump_io_ui_cmd (void)
+{
+	T_CP_CMD	*pt_cmd = &gta_io_ui_cmd[0];
+
+	while (pt_cmd->pc_name)
+	{
+		wprintf(L"%s:\n", pt_cmd->pc_name);
+		dump_cmd_fields(pt_cmd->pt_fields);
+		pt_cmd++;
+	}
+
+}
+
+void destroy_cmd_fields(T_CP_CMD_FIELD* pt_cmd_fields)
+{
+	T_CP_CMD_FIELD	*pt_field = pt_cmd_fields;
+
+	while (pt_field->pc_name)
+	{
+		free(pt_field->pc_name);
+
+		if (pt_field->e_type == CFT_TXT && pt_field->pc_str)
+		{
+			free(pt_field->pc_str);
+		}
+		pt_field++;
+	}
+
+	free(pt_cmd_fields);
+	return;
+}
+
+void free_io_ui_cmd (void)
+{
+	T_CP_CMD	*pt_cmd = &gta_io_ui_cmd[0];
+
+	while (pt_cmd->pc_name)
+	{
+		destroy_cmd_fields(pt_cmd->pt_fields);
+		pt_cmd++;
+	}
+}
+
+void check_ui_status (void)
+{
+	// Try to initialize UI over IO pipe if not initialized yet. IO pipe must be connected 
+	if ((gt_flags.io_ui == FL_CLR || gt_flags.io_ui == FL_UNDEF) && gt_flags.io_conn != FL_SET)
+	{ // Do nothing if IO not connected 
+
+	}
+
+	// UI init completed
+	if (gt_flags.io_ui == FL_RISE)
+	{
+		wprintf(L"UI commands initialized.\n");
+		dump_io_ui_cmd();
+		gt_flags.io_ui = FL_SET;
+	}
+
+	// Something goes wrong during UI init
+	if (gt_flags.io_ui == FL_FALL)
+	{
+		wprintf(L"UI commands freed.\n");
+		free_io_ui_cmd();
+		gt_flags.io_ui = FL_CLR;
+	}
+
+	// Nothing to do. Everything is OK
+	if (gt_flags.io_ui == FL_SET)
+	{
+
+	}
+
+}
+
 /***C*F******************************************************************************************
 **
 ** FUNCTION       : wmain
@@ -78,32 +192,6 @@ void wmain(int argc, WCHAR *argv[]){
     gt_flags.io_conn = FL_CLR;
     gt_flags.io_ui   = FL_CLR;
     gt_flags.exit    = FL_CLR;
-
-
-	{
-#define UI_INIT_SEPARATORS L" :\r\t"
-#define MAX_CMD_ARG_LEN 1024
-
-		// C:<CMD_NAME>\r
-		//     \tF:<FIELD_NAME>   <TYPE>   <LEN>   <VAL>\r
-		//     \tF:<FIELD_NAME>   <TYPE>   <LEN>   <VAL>\r
-
-		E_CMD_FIELD_TYPE	e_type;
-		DWORD				dw_len;
-		DWORD				dw_val;
-		int			n_ch_num;
-
-
-		WCHAR   ca_ui_init_cmd[MAX_CMD_ARG_LEN] = L"C:CMD\n\tF:  Field1  1 2 3 \n   \tF:    Field2 000 222 1\n";
-		WCHAR   ca_tmp[MAX_CMD_ARG_LEN];
-
-		int n_rc = FALSE;
-
-		n_ch_num = swscanf_s(ca_ui_init_cmd, L"%d", ca_tmp);
-		n_ch_num = swscanf_s(ca_ui_init_cmd, L"F:%s\n");
-
-	}
-
 
     n_arg_num = get_command_line_args(argc, argv, 1);
  
@@ -191,6 +279,10 @@ void wmain(int argc, WCHAR *argv[]){
                 n_rc = check_io_pipe_connection(&n_prompt_restore);
                 if (!n_rc) return;
             }
+
+			// Check other background task
+			// ...
+			check_ui_status();
 
             continue;
         }
@@ -421,55 +513,26 @@ int send_to_io_pipe(WCHAR *p_io_msg)
 } // End of TX MSG block
 
 
-
-
-typedef struct t_io_ui_tag{
-    T_CP_CMD        *pt_curr_cmd;
-}T_IO_UI;
-
-T_IO_UI gt_io_ui;
-
-#define MAX_IO_UI_CMD   100
-T_CP_CMD    gta_io_ui_cmd[MAX_IO_UI_CMD];
-
-typedef enum E_UI_INIT_TLV_TYPE_tag
-{
-    UI_INIT_TLV_TYPE_NONE = 0,
-    UI_INIT_TLV_TYPE_UI_INIT_START = 1,
-    UI_INIT_TLV_TYPE_UI_INIT_END,
-    UI_INIT_TLV_TYPE_CMD_NAME,
-    UI_INIT_TLV_TYPE_FLD_NAME,
-    UI_INIT_TLV_TYPE_FLD_TYPE,
-    UI_INIT_TLV_TYPE_FLD_LEN,
-    UI_INIT_TLV_TYPE_FLD_VAL,
-    UI_INIT_TLV_TYPE_FLD_CNT,
-} E_UI_INIT_TLV_TYPE;
-
-typedef struct T_UI_INIT_TLV_tag
-{
-    E_UI_INIT_TLV_TYPE  type;
-    int                 len;
-    WCHAR               *val_str;
-    DWORD               val_dword;
-} T_UI_INIT_TLV;
-
 BYTE* get_tlv_tl(BYTE *pb_buff, T_UI_INIT_TLV *t_tlv)
 {
     t_tlv->type = (E_UI_INIT_TLV_TYPE)*pb_buff++;
-    if (t_tlv->type == E_UI)
+	if (t_tlv->type == UI_INIT_TLV_TYPE_NONE)
+		return NULL;
+
     t_tlv->len  = (int)*pb_buff++;
+	return pb_buff;
 }
 
-BYTE* get_tlv_str(BYTE *pb_buff, T_UI_INIT_TLV *t_tlv)
+BYTE* get_tlv_v_str(BYTE *pb_buff, T_UI_INIT_TLV *t_tlv)
 {
-    if (t_tlv->val_str != NULL)
+    if (t_tlv->val_str == NULL)
     {
         wprintf(L"Att:Something wrong @ %d\n", __LINE__);
         return NULL;
     }
 
     t_tlv->val_str =  (WCHAR*)malloc(t_tlv->len);
-    if (t_tlv->val_str != NULL)
+	if (t_tlv->val_str == NULL)
     {
         wprintf(L"Att:Something wrong @ %d\n", __LINE__);
         return NULL;
@@ -479,98 +542,130 @@ BYTE* get_tlv_str(BYTE *pb_buff, T_UI_INIT_TLV *t_tlv)
     return (pb_buff + t_tlv->len);
 }
 
-BYTE* get_tlv_dword(BYTE *pb_buff, T_UI_INIT_TLV *t_tlv)
+BYTE* get_tlv_v_dword (BYTE *pb_buff, T_UI_INIT_TLV *t_tlv)
 {
-    if (t_tlv->val_str != NULL)
+	if (t_tlv->val_str == NULL)
     {
         wprintf(L"Att:Something wrong @ %d\n", __LINE__);
         return NULL;
     }
 
-    t_tlv->val_str =  (WCHAR*)malloc(t_tlv->len);
-    if (t_tlv->val_str != NULL)
-    {
-        wprintf(L"Att:Something wrong @ %d\n", __LINE__);
-        return NULL;
-    }
-
-    memcpy(t_tlv->val_str, pb_buff, t_tlv->len);
+	memcpy(&t_tlv->val_dword, pb_buff, sizeof(DWORD));
+	return (pb_buff + sizeof(DWORD));
 }
 
-T_CP_CMD_FIELD* proceed_ui_msg_cmd(BYTE *pb_msg_buff_inp)
+
+
+T_CP_CMD_FIELD* proceed_rx_msg_ui_cmd (BYTE *pb_msg_buff_inp)
 {
     T_UI_INIT_TLV   t_tlv;
-    DWORD           dw_fld_cnt;
-    BYTE            *pb_msg_buff;
+    DWORD           dw_fld_cnt, dw_fld_cnt_ref;
+	BYTE            *pb_msg_buff = pb_msg_buff_inp;
+	T_CP_CMD_FIELD	*pt_cmd_fields, *pt_field;
 
     // Input buffer points to the begining of first FIELD TLV
-    pb_msg_buff = get_tlv_tl(pb_msg_buff, &t_tlv);
 
-    // Just get number of fields in TLV list
+    // Just count number of fields in TLV list to create fields array 
+	// Number of FLD_NAME TLVs is compared with reference in dedicated TLV.
     dw_fld_cnt = 0;
-    pb_msg_buff = pb_msg_buff_inp;
-    while ()
+	dw_fld_cnt_ref = ~(0);
+	pb_msg_buff = pb_msg_buff_inp;
+	while (pb_msg_buff = get_tlv_tl(pb_msg_buff, &t_tlv))
     {
-        pb_msg_buff = get_tlv_tl(pb_msg_buff, &t_tlv);
-        if (t_tlv.type == UI_INIT_TLV_TYPE_NONE)
-        {
-            break;
-        }
+		if (t_tlv.type == UI_INIT_TLV_TYPE_CMD_FLD_CNT)
+		{
+			pb_msg_buff = get_tlv_v_dword(pb_msg_buff, &t_tlv);
+			dw_fld_cnt_ref = t_tlv.val_dword;
+			continue;
+		}
 
-        if (t_tlv.type == UI_INIT_TLV_TYPE_NONE)
+		if (t_tlv.type == UI_INIT_TLV_TYPE_FLD_NAME)
         {
-            break;
+			dw_fld_cnt++;
         }
+		pb_msg_buff += t_tlv.len;
     }
 
-
-    //
-    switch (t_tlv.type)
-    { 
-        case UI_INIT_TLV_TYPE_NONE:
-        case UI_INIT_TLV_TYPE_FLD_NAME:
-        case UI_INIT_TLV_TYPE_FLD_TYPE:
-        case UI_INIT_TLV_TYPE_FLD_LEN:
-        case UI_INIT_TLV_TYPE_FLD_VAL:
-        case UI_INIT_TLV_TYPE_FLD_CNT:
-    
-    
-    // UI init START
-        pb_msg_buff = get_tlv_str(pb_msg_buff, &t_tlv);        
-
-
-	swscanf_s(pc_ui_cmd, "C:%s ");
-
-	// Make command local copy to use STRTOK
-	if (!(*pc_cmd_arg)) return NULL;
-	wcscpy_s(ca_cmd, MAX_CMD_ARG_LEN, pc_cmd_arg);
-
-	// Read command
-	pc_cmd_token = wcstok(ca_cmd, UI_INIT_SEPARATORS);
-	if (!(*pc_cmd_token)) return NULL;
-
-	if (*pc_cmd_token != L'C')
+	if (dw_fld_cnt != dw_fld_cnt_ref)
 	{
-
+		wprintf(L"Att: Something wrong @ $d - 0x%08X != 0x%08X", dw_fld_cnt, dw_fld_cnt_ref);
+		return NULL;
 	}
 
+    // Allocate Fields array 
+	pt_cmd_fields = (T_CP_CMD_FIELD*)malloc((dw_fld_cnt + 1) * sizeof(T_CP_CMD_FIELD));	// +1 for NULL terminated array
+	memset(pt_cmd_fields, 0, (dw_fld_cnt + 1) * sizeof(T_CP_CMD_FIELD));
+
+	// Fill up fields' data
+	pt_field = NULL;
+	pb_msg_buff = pb_msg_buff_inp;
+	while (pb_msg_buff = get_tlv_tl(pb_msg_buff, &t_tlv))
+	{
+		switch (t_tlv.type)
+		{
+		case UI_INIT_TLV_TYPE_FLD_NAME:
+
+			// Init or advance field pointer 
+			if (pt_field) pt_field++;
+			else pt_field = &pt_cmd_fields[0];
+
+			pb_msg_buff = get_tlv_v_str(pb_msg_buff, &t_tlv);
+			pt_field->pc_name = t_tlv.val_str;
+			break;
+
+		case UI_INIT_TLV_TYPE_FLD_TYPE:
+			pb_msg_buff = get_tlv_v_dword(pb_msg_buff, &t_tlv);
+			pt_field->e_type = (E_CMD_FIELD_TYPE)t_tlv.val_dword;
+			break;
+
+		case UI_INIT_TLV_TYPE_FLD_LEN:
+			pb_msg_buff = get_tlv_v_dword(pb_msg_buff, &t_tlv);
+			pt_field->n_len = t_tlv.val_dword;
+			break;
+
+		case UI_INIT_TLV_TYPE_FLD_VAL:
+			if (pt_field->e_type == CFT_NUM)
+			{
+				pb_msg_buff = get_tlv_v_dword(pb_msg_buff, &t_tlv);
+				pt_field->dw_val = t_tlv.val_dword;
+			}
+			else // Assume: if (pt_field->e_type == CFT_TXT)
+			{
+				pb_msg_buff = get_tlv_v_str(pb_msg_buff, &t_tlv);
+				pt_field->pc_str = t_tlv.val_str;
+			}
+			break;
+
+		default:
+			// Not interesting TLV - just skip
+			pb_msg_buff += t_tlv.len;
+		}
+
+		// Sanity checks
+		if (!pb_msg_buff)
+		{ // Something bad happens
+			destroy_cmd_fields(pt_cmd_fields);
+			return NULL;
+		}
+
+	} // End of FLD TLV loop
+    
+	// dump_cmd_fields(pt_cmd_fields);	// AV TODO: temporary printout 
+
+	return pt_cmd_fields;
 }
 
-int proceed_ui_msg(BYTE *pc_ui_msg)
+int proceed_rx_msg_ui (BYTE *pc_ui_init_msg)
 {
-
-    DWORD   dw_fld_cnt;
-    T_CP_CMD_FIELD  *pt_curr_field;
-    T_CP_CMD        *pt_curr_cmd;
     T_UI_INIT_TLV   t_tlv;
 
-    BYTE *pb_msg_buff = pc_ui_msg;
+	BYTE *pb_msg_buff = pc_ui_init_msg;
 
     pb_msg_buff = get_tlv_tl(pb_msg_buff, &t_tlv);
 
     if (t_tlv.type == UI_INIT_TLV_TYPE_UI_INIT_START)
     { // UI init START
-        pb_msg_buff = get_tlv_str(pb_msg_buff, &t_tlv);        
+        pb_msg_buff = get_tlv_v_str(pb_msg_buff, &t_tlv);        
         wprintf(L"AV TEMP: ---------- UI INIT START: %s\n", t_tlv.val_str);
 
 		// Parse welcome message
@@ -580,23 +675,24 @@ int proceed_ui_msg(BYTE *pc_ui_msg)
     else if (t_tlv.type == UI_INIT_TLV_TYPE_CMD_NAME)
     { // UI init CMD. Add command to cmd list
 
-        pb_msg_buff = get_tlv_str(pb_msg_buff, &t_tlv);        
+		pb_msg_buff = get_tlv_v_str(pb_msg_buff, &t_tlv);
         gt_io_ui.pt_curr_cmd->pc_name = t_tlv.val_str;
-        gt_io_ui.pt_curr_cmd->pt_fields = proceed_ui_msg_cmd(pb_msg_buff);
+		gt_io_ui.pt_curr_cmd->pt_fields = proceed_rx_msg_ui_cmd(pb_msg_buff);
 
-        wprintf(L"AV TEMP: ---------- UI INIT CMD: %s\n", t_tlv.val_str);
+		wprintf(L"AV TEMP: ---------- UI INIT CMD: %s\n", t_tlv.val_str);
+		//dump_cmd_fields(gt_io_ui.pt_curr_cmd->pt_fields);
 
-		;
-
+		gt_io_ui.pt_curr_cmd++;
 
         send_to_io_pipe(L"ACK");
     }
     else if (t_tlv.type == UI_INIT_TLV_TYPE_UI_INIT_END)
     { // UI init END
-        pb_msg_buff = get_tlv_str(pb_msg_buff, &t_tlv);        
+        pb_msg_buff = get_tlv_v_str(pb_msg_buff, &t_tlv);        
         wprintf(L"AV TEMP: ---------- UI INIT END: %s\n", t_tlv.val_str);
 
         send_to_io_pipe(L"READY");
+		gt_flags.io_ui = FL_RISE;
     }
 
     return TRUE;
@@ -652,11 +748,12 @@ int proceed_rx_msg(int *pn_prompt_restore){
     {
 		wprintf(L"UI init msg: %s\n", gca_cmd_io_resp);
 		*pn_prompt_restore = TRUE;
-        proceed_ui_msg(gca_cmd_io_resp);
+        proceed_rx_msg_ui((BYTE*)gca_cmd_io_resp);
 
     }
     else if (gt_flags.io_ui == FL_SET)
     {
+		// proceed_rx_msg_cmd_resp
         wprintf(L"\n%s\n", gca_cmd_io_resp);
         *pn_prompt_restore = TRUE;
     }

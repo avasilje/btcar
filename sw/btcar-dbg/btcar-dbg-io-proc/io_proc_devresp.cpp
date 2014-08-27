@@ -109,7 +109,7 @@ int btcar_dev_response_processing(){
         }
 
         // Send processed device response to IO
-        io_pipe_tx(gca_io_cmd_resp); // Get from gca_io_cmd_resp
+        io_pipe_tx_str(gca_io_cmd_resp); // Get from gca_io_cmd_resp
     }
     else
     { // gdw_dev_bytes_rcv < 2

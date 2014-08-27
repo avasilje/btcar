@@ -25,7 +25,7 @@
 #include "FTD2XX.H"
 #include "cmd_line_wc.h"
 #include "cmd_lib.h"
-#include "cmd_proc.h"
+#include "cmd_proc_ui.h"
 #include "io_proc_devcmd.h"
 #include "io_proc_devresp.h"
 #include "io_proc.h"
@@ -86,7 +86,7 @@ BYTE *add_tlv_str (BYTE *pb_msg_buff, E_UI_INIT_TLV_TYPE e_type, WCHAR *pc_str)
 {
     size_t t_str_len_b;
 
-    t_str_len_b = wcslen(pc_str) * 2;
+    t_str_len_b = wcslen(pc_str) * 2 + 2;	// +2 for NUL termination
 
     if (t_str_len_b > MAXBYTE)
         return pb_msg_buff;
@@ -103,7 +103,7 @@ BYTE *add_tlv_dword (BYTE *pb_msg_buff, E_UI_INIT_TLV_TYPE e_type, DWORD dw_val)
     size_t t_len = sizeof(DWORD);
 
     *pb_msg_buff++ = (BYTE)e_type;          // type
-    *pb_msg_buff++ = (BYTE)t_len;   // len in bytes
+    *pb_msg_buff++ = (BYTE)t_len;			// len in bytes
     memcpy(pb_msg_buff, &dw_val, t_len);
     return (pb_msg_buff + t_len);
 }
@@ -114,21 +114,20 @@ size_t terminate_tlv_list (BYTE *pb_msg_buff)
 
     *pb_msg_buff++ = UI_INIT_TLV_TYPE_NONE;
 
-    if (t_msg_len > IO_UI_INIT_MSG_LEN || t_msg_len == 0)
+	t_msg_len = pb_msg_buff - &gba_io_ui_init_msg[0];
+
+	if (t_msg_len > IO_UI_INIT_MSG_LEN || t_msg_len == 0)
     {
         wprintf(L"Att: Something wrong @ %d\n", __LINE__);
-        return TRUE;
+        return 0;
     }
 
-    t_msg_len = pb_msg_buff - &gba_io_ui_init_msg[0];
     return t_msg_len;
 }
 
 int init_io_ui(void)
 {
-
-    T_CP_CMD        *pt_curr_cmd;
-    T_UI_INIT_TLV   t_tlv;
+	T_CP_CMD        *pt_curr_cmd;
     size_t          t_msg_len;
     BYTE            *pb_msg_buff = &gba_io_ui_init_msg[0];
 
@@ -140,14 +139,12 @@ int init_io_ui(void)
         gt_io_ui.pt_curr_cmd = gta_cmd_lib;
 
         // Send an init command to UI
-        swprintf(gca_io_ui_init_str, IO_UI_INIT_STR_LEN, L"S: Welcome message\n");
-        
+		pb_msg_buff = add_tlv_str(pb_msg_buff, UI_INIT_TLV_TYPE_UI_INIT_START, L"Welcome!");
     }
     else if (!pt_curr_cmd->pc_name)
     {
         // Send an init command to UI
-        swprintf(gca_io_ui_init_str, IO_UI_INIT_STR_LEN, L"E: end of UI init\n");
-
+		pb_msg_buff = add_tlv_str(pb_msg_buff, UI_INIT_TLV_TYPE_UI_INIT_END, L"Finish!");
     }
     else 
     {
@@ -171,6 +168,7 @@ int init_io_ui(void)
                     pt_curr_field->n_len,
                     pt_curr_field->dw_val);
 
+				// ATT: Do not change TLV order! NAME, TYPE, LEN, VAL
                 pb_msg_buff = add_tlv_str(pb_msg_buff, UI_INIT_TLV_TYPE_FLD_NAME, pt_curr_field->pc_name);
 
                 pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_INIT_TLV_TYPE_FLD_TYPE, (DWORD)pt_curr_field->e_type);
@@ -197,11 +195,11 @@ int init_io_ui(void)
         } // End of while over all fields
 
         // Add number of fields as a check sum
-        pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_INIT_TLV_TYPE_FLD_CNT,  (DWORD)dw_fld_cnt);
+		pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_INIT_TLV_TYPE_CMD_FLD_CNT, (DWORD)dw_fld_cnt);
         gt_io_ui.pt_curr_cmd = pt_curr_cmd + 1;
     }
 
-	wprintf(L"UI INIT <-- IO : %s\n", gca_io_ui_init_str);
+	wprintf(L"UI INIT <-- IO : something... \n");
 
     t_msg_len = terminate_tlv_list(pb_msg_buff);
 
