@@ -21,53 +21,6 @@
 #include <stdio.h>
 #include "cmd_lib.h"
 
-// ---------------- Internal Functions ----------------------
-int update_cmd_int(WCHAR *pc_cmd_arg, T_CP_CMD_FIELD *pt_fields, int n_update);
-
-//---------------------------------------------------------------------------
-t_cmd_init_tag gt_cmd_init = {
-    {NULL, CFT_LAST, 0, 0}
-};
-
-//---------------------------------------------------------------------------
-t_cmd_dev_sign_tag gt_cmd_dev_sign = {
-    {NULL, CFT_LAST, 0, 0}
-};
-
-//---------------------------------------------------------------------------
-t_cmd_mcu_led_tag gt_cmd_mcu_led = {
-    {L"GREEN"  ,  CFT_NUM,      0,           0},
-    {L"RED"    ,  CFT_NUM,      0,           0},
-    {NULL, CFT_LAST, 0, 0}
-};
-
-
-#if 0
-//---------------------------------------------------------------------------
-t_cmd_???_tag gt_cmd_??? = {
-    {L"???"      ,  CFT_NUM,      0,           0},
-    {NULL, CFT_LAST, 0, 0}
-};
-
-
-//---------------------------------------------------------------------------
-#define xxx_WR_DATA_LEN 128
-WCHAR ca_xxx_wr_data[xxx_WR_DATA_LEN];
-t_cmd_xxx_wr_tag gt_cmd_xxx_wr = {
-    {L"DATA"    ,  CFT_TXT,      xxx_WR_DATA_LEN,  (DWORD)ca_xxx_wr_data},
-    {NULL, CFT_LAST, 0, 0}
-};
-
-#endif // #if 0
-
-
-T_CP_CMD gta_cmd_lib[] = {
-    { L"DEV_SIGN"                 , (T_CP_CMD_FIELD*)&gt_cmd_dev_sign},
-    { L"INIT"                     , (T_CP_CMD_FIELD*)&gt_cmd_init },
-    { L"MLED"                     , (T_CP_CMD_FIELD*)&gt_cmd_mcu_led },
-    { 0, 0 }
-};
-
 //---------------------------------------------------------------------------
 
 T_CP_CMD* lookup_cp_cmd(WCHAR *pc_cmd_arg, T_CP_CMD *pt_cmd_lib){
@@ -82,44 +35,6 @@ T_CP_CMD* lookup_cp_cmd(WCHAR *pc_cmd_arg, T_CP_CMD *pt_cmd_lib){
     return pt_cmd_lib;
 }
 
-T_CP_CMD* decomposite_cp_cmd(WCHAR *pc_cmd_arg, T_CP_CMD *pt_cmd, int n_update){
-
-#define MAX_CMD_ARG_LEN 1024
-
-    WCHAR   ca_cmd[MAX_CMD_ARG_LEN];
-    WCHAR   *pc_cmd_token, *pc_cmd_line_end;
-
-    int n_rc = FALSE;
-
-    // Make command local copy to use STRTOK
-    if (!(*pc_cmd_arg)) return NULL;
-    wcscpy_s(ca_cmd, MAX_CMD_ARG_LEN, pc_cmd_arg);
-
-    // Read command
-    pc_cmd_token = wcstok(ca_cmd, L" ");
-    if (!(*pc_cmd_token)) return NULL;
-
-    pt_cmd = lookup_cp_cmd(pc_cmd_token, pt_cmd);
-
-    // Check is command was found, update fields if so
-    if (pt_cmd->pt_fields){
-
-        // Calc last element address
-        pc_cmd_line_end = &ca_cmd[wcslen(pc_cmd_arg)];
-
-        // Move pointer over command if not end of line
-        pc_cmd_token += wcslen(pc_cmd_token);
-        if (pc_cmd_token != pc_cmd_line_end) pc_cmd_token ++;
-
-        // Parse command WITH fields update
-        n_rc = update_cmd_int(pc_cmd_token, pt_cmd->pt_fields, n_update);
-    }else{
-        fwprintf(stderr, L"Command not found %s\n", pc_cmd_token);
-    }
-
-    return (n_rc ? pt_cmd : NULL);
-}
-
 int update_cmd_int(WCHAR *pc_cmd_arg, T_CP_CMD_FIELD *pt_fields, int n_update){
 
     int  n_rc;
@@ -127,7 +42,6 @@ int update_cmd_int(WCHAR *pc_cmd_arg, T_CP_CMD_FIELD *pt_fields, int n_update){
     WCHAR  *pc_cmd, *pc_value;
     int n_skip_tokenization_fl;
     T_CP_CMD_FIELD *pt_curr_field;
-
 
     n_rc = TRUE;
 
@@ -231,3 +145,42 @@ int update_cmd_int(WCHAR *pc_cmd_arg, T_CP_CMD_FIELD *pt_fields, int n_update){
 
     return n_rc;
 }
+
+T_CP_CMD* decomposite_cp_cmd(WCHAR *pc_cmd_arg, T_CP_CMD *pt_cmd, int n_update){
+
+#define MAX_CMD_ARG_LEN 1024
+
+    WCHAR   ca_cmd[MAX_CMD_ARG_LEN];
+    WCHAR   *pc_cmd_token, *pc_cmd_line_end;
+
+    int n_rc = FALSE;
+
+    // Make command local copy to use STRTOK
+    if (!(*pc_cmd_arg)) return NULL;
+    wcscpy_s(ca_cmd, MAX_CMD_ARG_LEN, pc_cmd_arg);
+
+    // Read command
+    pc_cmd_token = wcstok(ca_cmd, L" ");
+    if (!(*pc_cmd_token)) return NULL;
+
+    pt_cmd = lookup_cp_cmd(pc_cmd_token, pt_cmd);
+
+    // Check is command was found, update fields if so
+    if (pt_cmd->pt_fields){
+
+        // Calc last element address
+        pc_cmd_line_end = &ca_cmd[wcslen(pc_cmd_arg)];
+
+        // Move pointer over command if not end of line
+        pc_cmd_token += wcslen(pc_cmd_token);
+        if (pc_cmd_token != pc_cmd_line_end) pc_cmd_token ++;
+
+        // Parse command WITH fields update
+        n_rc = update_cmd_int(pc_cmd_token, pt_cmd->pt_fields, n_update);
+    }else{
+        fwprintf(stderr, L"Command not found %s\n", pc_cmd_token);
+    }
+
+    return (n_rc ? pt_cmd : NULL);
+}
+

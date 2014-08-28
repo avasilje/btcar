@@ -71,6 +71,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="io_proc.cpp" />
+    <ClCompile Include="io_proc_devcmd_def.cpp" />
     <ClCompile Include="io_proc_devcmd.cpp" />
     <ClCompile Include="io_proc_devresp.cpp" />
   </ItemGroup>

@@ -25,10 +25,12 @@
 #include "FTD2XX.H"
 #include "cmd_line_wc.h"
 #include "cmd_lib.h"
-#include "cmd_proc_ui.h"
 #include "io_proc_devcmd.h"
 #include "io_proc_devresp.h"
 #include "io_proc.h"
+
+
+extern T_CP_CMD gta_cmd_lib[];
 
 T_IO_FLAGS gt_flags;
 
@@ -82,7 +84,7 @@ typedef struct t_io_ui_tag{
 T_IO_UI gt_io_ui;
 
 
-BYTE *add_tlv_str (BYTE *pb_msg_buff, E_UI_INIT_TLV_TYPE e_type, WCHAR *pc_str)
+BYTE *add_tlv_str (BYTE *pb_msg_buff, E_UI_IO_TLV_TYPE e_type, WCHAR *pc_str)
 {
     size_t t_str_len_b;
 
@@ -98,7 +100,7 @@ BYTE *add_tlv_str (BYTE *pb_msg_buff, E_UI_INIT_TLV_TYPE e_type, WCHAR *pc_str)
 
 }
 
-BYTE *add_tlv_dword (BYTE *pb_msg_buff, E_UI_INIT_TLV_TYPE e_type, DWORD dw_val)
+BYTE *add_tlv_dword (BYTE *pb_msg_buff, E_UI_IO_TLV_TYPE e_type, DWORD dw_val)
 {
     size_t t_len = sizeof(DWORD);
 
@@ -112,7 +114,7 @@ size_t terminate_tlv_list (BYTE *pb_msg_buff)
 {
     size_t t_msg_len;
 
-    *pb_msg_buff++ = UI_INIT_TLV_TYPE_NONE;
+    *pb_msg_buff++ = UI_IO_TLV_TYPE_NONE;
 
 	t_msg_len = pb_msg_buff - &gba_io_ui_init_msg[0];
 
@@ -138,20 +140,28 @@ int init_io_ui(void)
         // Initialize current pointer on very first call after UI reset
         gt_io_ui.pt_curr_cmd = gta_cmd_lib;
 
-        // Send an init command to UI
-		pb_msg_buff = add_tlv_str(pb_msg_buff, UI_INIT_TLV_TYPE_UI_INIT_START, L"Welcome!");
+        // Send an INIT START command to UI
+		pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_IO_TLV_TYPE_UI_CMD, (DWORD)IO_UI_UI_CMD_START);
+
+       	wprintf(L"UI INIT <-- IO : Init start\n");
+
     }
     else if (!pt_curr_cmd->pc_name)
     {
-        // Send an init command to UI
-		pb_msg_buff = add_tlv_str(pb_msg_buff, UI_INIT_TLV_TYPE_UI_INIT_END, L"Finish!");
+        // Send an INIT END command to UI
+		pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_IO_TLV_TYPE_UI_CMD, (DWORD)IO_UI_UI_CMD_END);
+
+       	wprintf(L"UI INIT <-- IO : Init end\n");
     }
     else 
     {
         DWORD   dw_fld_cnt;
         T_CP_CMD_FIELD  *pt_curr_field;
-        
-        pb_msg_buff = add_tlv_str(pb_msg_buff, UI_INIT_TLV_TYPE_CMD_NAME, pt_curr_cmd->pc_name);
+
+        // Send an INIT END command to UI
+		pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_IO_TLV_TYPE_UI_CMD, (DWORD)IO_UI_UI_CMD_CDEF);
+
+        pb_msg_buff = add_tlv_str(pb_msg_buff, UI_IO_TLV_TYPE_CMD_NAME, pt_curr_cmd->pc_name);
 
         pt_curr_field = pt_curr_cmd->pt_fields;
         dw_fld_cnt = 0;
@@ -169,11 +179,11 @@ int init_io_ui(void)
                     pt_curr_field->dw_val);
 
 				// ATT: Do not change TLV order! NAME, TYPE, LEN, VAL
-                pb_msg_buff = add_tlv_str(pb_msg_buff, UI_INIT_TLV_TYPE_FLD_NAME, pt_curr_field->pc_name);
+                pb_msg_buff = add_tlv_str(pb_msg_buff, UI_IO_TLV_TYPE_FLD_NAME, pt_curr_field->pc_name);
 
-                pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_INIT_TLV_TYPE_FLD_TYPE, (DWORD)pt_curr_field->e_type);
-                pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_INIT_TLV_TYPE_FLD_LEN,  (DWORD)pt_curr_field->n_len);
-                pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_INIT_TLV_TYPE_FLD_VAL,  (DWORD)pt_curr_field->dw_val);
+                pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_IO_TLV_TYPE_FLD_TYPE, (DWORD)pt_curr_field->e_type);
+                pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_IO_TLV_TYPE_FLD_LEN,  (DWORD)pt_curr_field->n_len);
+                pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_IO_TLV_TYPE_FLD_VAL,  (DWORD)pt_curr_field->dw_val);
 
                 break;
             case CFT_TXT:
@@ -195,11 +205,14 @@ int init_io_ui(void)
         } // End of while over all fields
 
         // Add number of fields as a check sum
-		pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_INIT_TLV_TYPE_CMD_FLD_CNT, (DWORD)dw_fld_cnt);
-        gt_io_ui.pt_curr_cmd = pt_curr_cmd + 1;
-    }
+		pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_IO_TLV_TYPE_CMD_FLD_CNT, (DWORD)dw_fld_cnt);
 
-	wprintf(L"UI INIT <-- IO : something... \n");
+        wprintf(L"UI INIT <-- IO: UI CMD: %s\n", pt_curr_cmd->pc_name);
+
+        gt_io_ui.pt_curr_cmd = pt_curr_cmd + 1;
+
+
+    }
 
     t_msg_len = terminate_tlv_list(pb_msg_buff);
 

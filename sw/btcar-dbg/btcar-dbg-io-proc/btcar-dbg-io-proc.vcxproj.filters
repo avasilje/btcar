@@ -24,6 +24,9 @@
     <ClCompile Include="io_proc_devresp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="io_proc_devcmd_def.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="io_proc_devcmd.h">
