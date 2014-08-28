@@ -23,7 +23,7 @@
 
 //---------------------------------------------------------------------------
 
-T_CP_CMD* lookup_cp_cmd(WCHAR *pc_cmd_arg, T_CP_CMD *pt_cmd_lib){
+T_UI_CMD* lookup_cp_cmd(WCHAR *pc_cmd_arg, T_UI_CMD *pt_cmd_lib){
 
     while(pt_cmd_lib->pc_name){
         if (_wcsicmp(pc_cmd_arg, pt_cmd_lib->pc_name) == 0){
@@ -35,13 +35,13 @@ T_CP_CMD* lookup_cp_cmd(WCHAR *pc_cmd_arg, T_CP_CMD *pt_cmd_lib){
     return pt_cmd_lib;
 }
 
-int update_cmd_int(WCHAR *pc_cmd_arg, T_CP_CMD_FIELD *pt_fields, int n_update){
+int update_cmd_int(WCHAR *pc_cmd_arg, T_UI_CMD *pt_fields, int n_update){
 
     int  n_rc;
     int  n_value;
     WCHAR  *pc_cmd, *pc_value;
     int n_skip_tokenization_fl;
-    T_CP_CMD_FIELD *pt_curr_field;
+    T_UI_CMD *pt_curr_field;
 
     n_rc = TRUE;
 
@@ -146,7 +146,7 @@ int update_cmd_int(WCHAR *pc_cmd_arg, T_CP_CMD_FIELD *pt_fields, int n_update){
     return n_rc;
 }
 
-T_CP_CMD* decomposite_cp_cmd(WCHAR *pc_cmd_arg, T_CP_CMD *pt_cmd, int n_update){
+T_UI_CMD* decomposite_cp_cmd(WCHAR *pc_cmd_arg, T_UI_CMD *pt_cmd, int n_update){
 
 #define MAX_CMD_ARG_LEN 1024
 
@@ -183,4 +183,31 @@ T_CP_CMD* decomposite_cp_cmd(WCHAR *pc_cmd_arg, T_CP_CMD *pt_cmd, int n_update){
 
     return (n_rc ? pt_cmd : NULL);
 }
+
+BYTE *add_tlv_str(BYTE *pb_msg_buff, E_UI_IO_TLV_TYPE e_type, WCHAR *pc_str)
+{
+    size_t t_str_len_b;
+
+    t_str_len_b = wcslen(pc_str) * 2 + 2;    // +2 for NUL termination
+
+    if (t_str_len_b > MAXBYTE)
+        return pb_msg_buff;
+
+    *pb_msg_buff++ = (BYTE)e_type;          // type
+    *pb_msg_buff++ = (BYTE)t_str_len_b;     // len in bytes
+    memcpy(pb_msg_buff, pc_str, t_str_len_b);
+    return (pb_msg_buff + t_str_len_b);
+
+}
+
+BYTE *add_tlv_dword(BYTE *pb_msg_buff, E_UI_IO_TLV_TYPE e_type, DWORD dw_val)
+{
+    size_t t_len = sizeof(DWORD);
+
+    *pb_msg_buff++ = (BYTE)e_type;          // type
+    *pb_msg_buff++ = (BYTE)t_len;            // len in bytes
+    memcpy(pb_msg_buff, &dw_val, t_len);
+    return (pb_msg_buff + t_len);
+}
+
 
