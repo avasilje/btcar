@@ -58,6 +58,10 @@ int  io_pipe_rx_init();
 
 int dev_clear_fifos();
 
+// AV TODO: Initernal utility. Should reworked somehow
+size_t terminate_tlv_list(BYTE *pb_msg_buff);
+extern BYTE  gba_io_ui_tx_msg[];
+
 typedef struct t_io_ui_tag{
     // Add to here
     //   pipe name

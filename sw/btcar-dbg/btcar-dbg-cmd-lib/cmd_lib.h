@@ -40,15 +40,16 @@ typedef struct cmd_field_tag
 typedef struct t_cmd_tag
 {
     WCHAR           *pc_name;
-    T_UI_CMD  *pt_fields;
+    T_UI_CMD_FIELD  *pt_fields;
     void            *ctx;
 }T_UI_CMD;
 
+typedef void (F_DEV_CMD)(void);
 
 // --- Functions -----------
 
 T_UI_CMD* lookup_cp_cmd(WCHAR *pc_cmd_arg, T_UI_CMD *pt_cmd_lib);
-int check_cp_cmd(WCHAR *pc_cmd_arg, T_UI_CMD *pt_fields);
+int check_cp_cmd(WCHAR *pc_cmd_arg, T_UI_CMD_FIELD *pt_fields);
 T_UI_CMD* decomposite_cp_cmd(WCHAR *pc_cmd_arg, T_UI_CMD *pt_cmd, int n_update);
 
 /*

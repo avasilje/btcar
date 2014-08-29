@@ -36,15 +36,15 @@ typedef struct cmd_proc_tag{
 #define SEND_COMMAND        5
 #define SHOW_OPTIONS_HELP   8
 
-void show_options_help(T_CP_CMD *pt_cmd);
+void show_options_help(T_UI_CMD *pt_cmd);
 
-void show_cmd_help(T_CP_CMD *pt_cmd_lib_arg);
+void show_cmd_help(T_UI_CMD *pt_cmd_lib_arg);
 void show_options_help(void);
 
 void *init_cmd_proc(WCHAR *pc_hist_filename);
 void close_cmd_proc(void *pv_info);
 
 void cmd_proc_prompt(void *pv_cmd_proc_info);
-WCHAR* cmd_keys_pressed(void *pv_cmd_info, int *pn_prompt_restore, T_CP_CMD *pt_cmd);
+WCHAR* cmd_keys_pressed(void *pv_cmd_info, int *pn_prompt_restore, T_UI_CMD *pt_cmd);
 
 #endif _CMD_PROC_CMD_PROC_INP_H

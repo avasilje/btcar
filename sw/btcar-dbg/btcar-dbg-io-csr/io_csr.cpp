@@ -25,6 +25,7 @@
 #include "cmd_lib.h"
 #include "io_csr.h"
 #include "io_csr_ui_cmd.h"
+#include "io_csr_dev_resp.h"
 
 T_IO_FLAGS gt_flags;
 
@@ -64,7 +65,7 @@ int gn_dev_resp_timeout;
 HANDLE gh_dump_file;
 HANDLE gh_meas_log_file;
 
-size_t terminate_tlv_list(BYTE *pb_msg_buff)
+size_t terminate_tlv_list (BYTE *pb_msg_buff)
 {
     size_t t_msg_len;
 
@@ -81,7 +82,7 @@ size_t terminate_tlv_list(BYTE *pb_msg_buff)
     return t_msg_len;
 }
 
-int io_ui_init(void)
+int io_ui_init (void)
 {
     size_t          t_msg_len;
     BYTE            *pb_msg_buff = &gba_io_ui_tx_msg[0];
@@ -93,7 +94,7 @@ int io_ui_init(void)
     }
 
     // Initialize current pointer on very first call after UI reset
-    gt_io_ui.pt_curr_cmd = gta_io_ui_cmd;
+    gt_io_ui.pt_curr_cmd = gta_io_csr_ui_cmd;
 
     // Send an INIT START command to UI
     pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_IO_TLV_TYPE_UI_CMD, (DWORD)IO_UI_UI_CMD_START);
@@ -106,7 +107,7 @@ int io_ui_init(void)
     return TRUE;
 }
 
-int io_ui_init_cont(void)
+int io_ui_init_cont (void)
 {
     T_UI_CMD        *pt_curr_cmd;
     size_t          t_msg_len;
@@ -130,7 +131,7 @@ int io_ui_init_cont(void)
     else 
     {   // Some commands still here. Continue sending...
         DWORD   dw_fld_cnt;
-        T_UI_CMD  *pt_curr_field;
+        T_UI_CMD_FIELD  *pt_curr_field;
 
         pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_IO_TLV_TYPE_UI_CMD, (DWORD)IO_UI_UI_CMD_CDEF);
         pb_msg_buff = add_tlv_str(pb_msg_buff, UI_IO_TLV_TYPE_CMD_NAME, pt_curr_cmd->pc_name);
@@ -154,6 +155,15 @@ int io_ui_init_cont(void)
 
             case CFT_TXT:
                 dw_fld_cnt++;
+
+                // ATT: Do not change TLV order! NAME, TYPE, LEN, VAL
+                pb_msg_buff = add_tlv_str(pb_msg_buff, UI_IO_TLV_TYPE_FLD_NAME, pt_curr_field->pc_name);
+
+                pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_IO_TLV_TYPE_FLD_TYPE, (DWORD)pt_curr_field->e_type);
+                pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_IO_TLV_TYPE_FLD_LEN,  (DWORD)pt_curr_field->n_len);
+                pb_msg_buff = add_tlv_str  (pb_msg_buff, UI_IO_TLV_TYPE_FLD_VAL,         pt_curr_field->pc_str);
+                break;
+
                 break;
 
             default:
@@ -179,7 +189,7 @@ int io_ui_init_cont(void)
     return TRUE;
 }
 
-int io_ui_cmd_proc()
+int io_ui_cmd_proc (void)
 {
 
     T_UI_CMD   *pt_ui_cmd;
@@ -209,7 +219,7 @@ int io_ui_cmd_proc()
     gca_cmd_buff[dw_bytes_transf >> 1] = '\0';
 
     // Lookup command within library & decomposite it's values
-    pt_ui_cmd = decomposite_cp_cmd(gca_cmd_buff, gta_io_ui_cmd, TRUE);
+    pt_ui_cmd = decomposite_cp_cmd(gca_cmd_buff, gta_io_csr_ui_cmd, TRUE);
 
     // If command not found check for exit or unknow command
     if (!pt_ui_cmd || !pt_ui_cmd->pt_fields)
@@ -224,8 +234,8 @@ int io_ui_cmd_proc()
         // TODO: replace for registered functions lookup
         if (pt_ui_cmd->ctx)
         {
-            // AV TODO:
-            // cast CTX to functor, then call it
+            F_DEV_CMD *pf_dev_cmd = (F_DEV_CMD*)pt_ui_cmd->ctx;
+            pf_dev_cmd();
         }
         else
         {
@@ -240,7 +250,7 @@ int io_ui_cmd_proc()
     return TRUE;
 }
 
-int io_ui_check(void)
+int io_ui_check (void)
 {
 
     // Try to initialize UI over IO pipe if not initialized yet. IO pipe must be connected 
@@ -270,7 +280,7 @@ int io_ui_check(void)
     return TRUE;
 }
 
-int dev_open_uart(int n_dev_indx, FT_HANDLE *ph_device)
+int dev_open_uart (int n_dev_indx, FT_HANDLE *ph_device)
 {
 
     FT_STATUS ft_status;
@@ -410,7 +420,7 @@ int dev_open_uart(int n_dev_indx, FT_HANDLE *ph_device)
     return TRUE;
 }
 
-int dev_open_fifo(int n_dev_indx, FT_HANDLE *ph_device)
+int dev_open_fifo (int n_dev_indx, FT_HANDLE *ph_device)
 {
     FT_STATUS ft_status;
     DWORD   dw_num_devs;
@@ -471,7 +481,7 @@ int dev_open_fifo(int n_dev_indx, FT_HANDLE *ph_device)
     return TRUE;
 }
 
-int dev_open()
+int dev_open (void)
 {
 
     int n_rc;
@@ -511,7 +521,7 @@ dev_open_cleanup:
 
 }
 
-void dev_close()
+void dev_close (void)
 {
 
     if (gh_dev != INVALID_HANDLE_VALUE)
@@ -523,7 +533,7 @@ void dev_close()
     return;
 }
 
-int dev_clear_fifos()
+int dev_clear_fifos (void)
 {
 
     FT_STATUS t_ft_st;
@@ -542,7 +552,7 @@ int dev_clear_fifos()
     return (t_ft_st == FT_OK);
 }
 
-int dev_rx_init(DWORD dw_dev_resp_req_len )
+int dev_rx_init (DWORD dw_dev_resp_req_len )
 {
 
     int n_rc, n_gle;
@@ -570,14 +580,14 @@ int dev_rx_init(DWORD dw_dev_resp_req_len )
     return TRUE;
 }
 
-int dev_rx_proc()
+int dev_rx_proc (void)
 {
     // Only responses expected from DEV so far
     dev_response_processing();
     return TRUE;
 }
 
-int dev_check()
+int dev_check (void)
 {
 
     // Connect to device, Check board presence, ping UI
@@ -617,7 +627,7 @@ int dev_check()
     return TRUE;
 }
 
-int io_pipe_rx_init(){
+int io_pipe_rx_init (void){
 
     int n_rc, n_gle;
 
@@ -644,7 +654,7 @@ int io_pipe_rx_init(){
 
 }
 
-int io_pipe_rx_proc()
+int io_pipe_rx_proc (void)
 {
     int n_rc;
     DWORD dw_bytes_transf;
@@ -701,7 +711,7 @@ int io_pipe_rx_proc()
     return TRUE;
 }
 
-int io_pipe_tx_str(WCHAR *pc_io_str)
+int io_pipe_tx_str (WCHAR *pc_io_str)
 {
 
     int n_rc, n_gle;
@@ -731,7 +741,7 @@ int io_pipe_tx_str(WCHAR *pc_io_str)
     return TRUE;
 }
 
-int io_pipe_tx_byte(BYTE *pc_io_msg, size_t t_msg_len)
+int io_pipe_tx_byte (BYTE *pc_io_msg, size_t t_msg_len)
 {
 
     int n_rc, n_gle;
@@ -757,7 +767,7 @@ int io_pipe_tx_byte(BYTE *pc_io_msg, size_t t_msg_len)
     return TRUE;
 }
 
-int io_pipe_init(int argc, WCHAR *pc_pipe_name)
+int io_pipe_init (int argc, WCHAR *pc_pipe_name)
 {
 
     if (argc < 2)
@@ -816,7 +826,7 @@ int io_pipe_init(int argc, WCHAR *pc_pipe_name)
     return TRUE;
 }
 
-void io_pipe_close()
+void io_pipe_close (void)
 {
     // Close IO pipe
     if (gh_io_pipe != INVALID_HANDLE_VALUE)
@@ -832,7 +842,7 @@ void io_pipe_close()
     return;
 }
 
-int io_pipe_check()
+int io_pipe_check (void)
 {
 
     int n_rc, n_gle;
@@ -934,7 +944,7 @@ int io_pipe_check()
 ** NOTES          :
 **
 ***C*F*E***************************************************************************************************/
-int main_loop_wait()
+int main_loop_wait (void)
 {
 
     int n_rc;

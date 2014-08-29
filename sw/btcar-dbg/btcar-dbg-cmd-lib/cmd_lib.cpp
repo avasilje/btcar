@@ -35,13 +35,13 @@ T_UI_CMD* lookup_cp_cmd(WCHAR *pc_cmd_arg, T_UI_CMD *pt_cmd_lib){
     return pt_cmd_lib;
 }
 
-int update_cmd_int(WCHAR *pc_cmd_arg, T_UI_CMD *pt_fields, int n_update){
+int update_cmd_int(WCHAR *pc_cmd_arg, T_UI_CMD_FIELD *pt_fields, int n_update){
 
     int  n_rc;
     int  n_value;
     WCHAR  *pc_cmd, *pc_value;
     int n_skip_tokenization_fl;
-    T_UI_CMD *pt_curr_field;
+    T_UI_CMD_FIELD *pt_curr_field;
 
     n_rc = TRUE;
 

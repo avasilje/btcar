@@ -1,3 +1,6 @@
+// AV TODO:
+//  1. beatify console behavior if IO disconnected during typing
+
 /***C*********************************************************************************************
 **
 ** SRC-FILE     :   cmd_proc.cpp
@@ -46,23 +49,24 @@ CMD_PROC_FLAGS gt_flags;
 int gn_action;
 WCHAR gca_cmd_io_resp[IO_RX_MSG_LEN];
 
-const WCHAR gca_pipe_name[] = L"\\\\.\\pipe\\btcar_io_ui";     // AV TODO: rework to input argument
+//const WCHAR gca_pipe_name[] = L"\\\\.\\pipe\\btcar_io_ui";     // AV TODO: rework to input argument
+const WCHAR gca_pipe_name[] = L"\\\\.\\pipe\\csr_io_ui";
 
 
 typedef struct t_io_ui_tag{
-	T_CP_CMD   *pt_curr_cmd;
+	T_UI_CMD   *pt_curr_cmd;
 }T_IO_UI;
 
 T_IO_UI gt_io_ui;
 
 
 #define MAX_IO_UI_CMD   100
-T_CP_CMD    gta_io_ui_cmd[MAX_IO_UI_CMD];
-T_CP_CMD    *gpt_io_ui_cmd = NULL;
+T_UI_CMD    gta_io_ui_cmd[MAX_IO_UI_CMD];       // AV TODO: Rework to dynamic allocation
+T_UI_CMD    *gpt_io_ui_cmd = NULL;
 
-void dump_cmd_fields (T_CP_CMD_FIELD* pt_cmd_fields)
+void dump_cmd_fields (T_UI_CMD_FIELD* pt_cmd_fields)
 {
-	T_CP_CMD_FIELD	*pt_field = pt_cmd_fields;
+	T_UI_CMD_FIELD	*pt_field = pt_cmd_fields;
 
 	while (pt_field->pc_name)
 	{
@@ -90,7 +94,7 @@ void dump_cmd_fields (T_CP_CMD_FIELD* pt_cmd_fields)
 
 void dump_io_ui_cmd (void)
 {
-	T_CP_CMD	*pt_cmd = &gta_io_ui_cmd[0];
+	T_UI_CMD	*pt_cmd = &gta_io_ui_cmd[0];
 
 	while (pt_cmd->pc_name)
 	{
@@ -100,9 +104,9 @@ void dump_io_ui_cmd (void)
 	}
 }
 
-void destroy_cmd_fields(T_CP_CMD_FIELD* pt_cmd_fields)
+void destroy_cmd_fields(T_UI_CMD_FIELD* pt_cmd_fields)
 {
-	T_CP_CMD_FIELD	*pt_field = pt_cmd_fields;
+	T_UI_CMD_FIELD	*pt_field = pt_cmd_fields;
 
 	while (pt_field->pc_name)
 	{
@@ -116,12 +120,16 @@ void destroy_cmd_fields(T_CP_CMD_FIELD* pt_cmd_fields)
 	}
 
 	free(pt_cmd_fields);
+
+    // AV TODO: rework to memfree()
+    memset(gta_io_ui_cmd, 0, sizeof(gta_io_ui_cmd));
+
 	return;
 }
 
 void free_io_ui_cmd (void)
 {
-	T_CP_CMD	*pt_cmd = &gta_io_ui_cmd[0];
+	T_UI_CMD	*pt_cmd = &gta_io_ui_cmd[0];
 
 	while (pt_cmd->pc_name)
 	{
@@ -549,6 +557,27 @@ BYTE* get_tlv_v_str(BYTE *pb_buff, T_UI_IO_TLV *t_tlv)
     return (pb_buff + t_tlv->len);
 }
 
+BYTE* get_tlv_v_str_n(BYTE *pb_buff, T_UI_IO_TLV *t_tlv, int n_len)
+{
+    if (t_tlv->val_str == NULL || n_len < 0)
+    {
+        wprintf(L"Att:Something wrong @ %d\n", __LINE__);
+        return NULL;
+    }
+
+    t_tlv->val_str =  (WCHAR*)malloc(n_len);
+    memset(t_tlv->val_str, 0, n_len);
+
+	if (t_tlv->val_str == NULL)
+    {
+        wprintf(L"Att:Something wrong @ %d\n", __LINE__);
+        return NULL;
+    }
+
+    memcpy(t_tlv->val_str, pb_buff, t_tlv->len);
+    return (pb_buff + t_tlv->len);
+}
+
 BYTE* get_tlv_v_dword (BYTE *pb_buff, T_UI_IO_TLV *t_tlv)
 {
 	if (t_tlv->val_str == NULL)
@@ -563,12 +592,12 @@ BYTE* get_tlv_v_dword (BYTE *pb_buff, T_UI_IO_TLV *t_tlv)
 
 
 
-T_CP_CMD_FIELD* proceed_rx_msg_ui_cmd_cdef (BYTE *pb_msg_buff_inp)
+T_UI_CMD_FIELD* proceed_rx_msg_ui_cmd_cdef (BYTE *pb_msg_buff_inp)
 {
     T_UI_IO_TLV   t_tlv;
     DWORD           dw_fld_cnt, dw_fld_cnt_ref;
 	BYTE            *pb_msg_buff = pb_msg_buff_inp;
-	T_CP_CMD_FIELD	*pt_cmd_fields, *pt_field;
+	T_UI_CMD_FIELD	*pt_cmd_fields, *pt_field;
 
     // Input buffer points to the begining of first FIELD TLV
 
@@ -600,8 +629,8 @@ T_CP_CMD_FIELD* proceed_rx_msg_ui_cmd_cdef (BYTE *pb_msg_buff_inp)
 	}
 
     // Allocate Fields array 
-	pt_cmd_fields = (T_CP_CMD_FIELD*)malloc((dw_fld_cnt + 1) * sizeof(T_CP_CMD_FIELD));	// +1 for NULL terminated array
-	memset(pt_cmd_fields, 0, (dw_fld_cnt + 1) * sizeof(T_CP_CMD_FIELD));
+	pt_cmd_fields = (T_UI_CMD_FIELD*)malloc((dw_fld_cnt + 1) * sizeof(T_UI_CMD_FIELD));	// +1 for NULL terminated array
+	memset(pt_cmd_fields, 0, (dw_fld_cnt + 1) * sizeof(T_UI_CMD_FIELD));
 
 	// Fill up fields' data
 	pt_field = NULL;
@@ -618,6 +647,7 @@ T_CP_CMD_FIELD* proceed_rx_msg_ui_cmd_cdef (BYTE *pb_msg_buff_inp)
 
 			pb_msg_buff = get_tlv_v_str(pb_msg_buff, &t_tlv);
 			pt_field->pc_name = t_tlv.val_str;
+            pt_field->n_len = -1;
 			break;
 
 		case UI_IO_TLV_TYPE_FLD_TYPE:
@@ -638,7 +668,7 @@ T_CP_CMD_FIELD* proceed_rx_msg_ui_cmd_cdef (BYTE *pb_msg_buff_inp)
 			}
 			else // Assume: if (pt_field->e_type == CFT_TXT)
 			{
-				pb_msg_buff = get_tlv_v_str(pb_msg_buff, &t_tlv);
+				pb_msg_buff = get_tlv_v_str_n(pb_msg_buff, &t_tlv, pt_field->n_len);
 				pt_field->pc_str = t_tlv.val_str;
 			}
 			break;
@@ -955,7 +985,7 @@ int check_io_pipe_connection (int *pn_prompt_restore)
 ***C*F*E***************************************************************************************************/
 int proceed_cmd(WCHAR *pc_cmd_arg)
 {
-    T_CP_CMD   *pt_curr_cmd;
+    T_UI_CMD   *pt_curr_cmd;
 
     WCHAR   ca_cmd[CMD_LINE_LENGTH];
     WCHAR   *pc_cmd_token;

@@ -45,7 +45,7 @@ int strcharins (WCHAR *pc_dst, WCHAR c_src, int n_pos, int n_dst_max_len)
     return n_pos;
 }
 
-void cmd_auto_complete (WCHAR *pc_cmd_line, int n_cmd_len, int *pn_cur_pos, T_CP_CMD *pt_cmd_arg)
+void cmd_auto_complete (WCHAR *pc_cmd_line, int n_cmd_len, int *pn_cur_pos, T_UI_CMD *pt_cmd_arg)
 {
 
     WCHAR   ca_inp_cmd[CMD_LINE_LENGTH];
@@ -60,9 +60,9 @@ void cmd_auto_complete (WCHAR *pc_cmd_line, int n_cmd_len, int *pn_cur_pos, T_CP
     int     n_last_tok_len;
     int     n_exact_match, n_unique;
 
-    T_CP_CMD_FIELD  *pt_fields;
-    T_CP_CMD  *pt_cmd;
-    T_CP_CMD  *pt_exact_cmds;
+    T_UI_CMD_FIELD  *pt_fields;
+    T_UI_CMD  *pt_cmd;
+    T_UI_CMD  *pt_exact_cmds;
 
     if (pt_cmd_arg == NULL)
     { // Commands table is not available
@@ -351,7 +351,7 @@ void print_col_adj (WCHAR *pc_str, int n_col_size)
 }
 
 
-int cmd_suggest (WCHAR *pc_cmd_line, int *pn_cur_pos, T_CP_CMD *pt_cmd_arg)
+int cmd_suggest (WCHAR *pc_cmd_line, int *pn_cur_pos, T_UI_CMD *pt_cmd_arg)
 {
 
     int   n_rc, n_str_max_len, n_str_len, n_cmd_hit_cnt, n_tok_len;
@@ -363,8 +363,8 @@ int cmd_suggest (WCHAR *pc_cmd_line, int *pn_cur_pos, T_CP_CMD *pt_cmd_arg)
     WCHAR    *pc_next_tok;
     WCHAR    *pc_last_tok;
 
-    T_CP_CMD_FIELD  *pt_fields;
-    T_CP_CMD  *pt_cmd, *pt_hit_cmd;
+    T_UI_CMD_FIELD  *pt_fields;
+    T_UI_CMD  *pt_cmd, *pt_hit_cmd;
 
     n_rc = FALSE;   // Return TRUE if something suggested FALSE otherwise
 
@@ -505,7 +505,7 @@ int cmd_suggest (WCHAR *pc_cmd_line, int *pn_cur_pos, T_CP_CMD *pt_cmd_arg)
     return n_rc;
 }
 
-WCHAR* cmd_keys_pressed (void *pv_cmd_info, int *pn_prompt_restore, T_CP_CMD *pt_cmd)
+WCHAR* cmd_keys_pressed (void *pv_cmd_info, int *pn_prompt_restore, T_UI_CMD *pt_cmd)
 {
 
     int n_rc, n_cur_pos, n_flag;
@@ -580,10 +580,10 @@ void print_next_suggest(WCHAR *pc_str){
 }
 
 
-T_CP_CMD *get_next_cmd(T_CP_CMD *pt_cmd, int n_mod){
+T_UI_CMD *get_next_cmd(T_UI_CMD *pt_cmd, int n_mod){
 
 /*
-    T_CP_CMD     *pt_fields;
+    T_UI_CMD     *pt_fields;
 
     while(pt_cmd->pt_fields){
         pt_fields = pt_cmd->pt_fields;
@@ -623,10 +623,10 @@ void show_options_help(){
 
 }
 
-void show_cmd_help (T_CP_CMD *pt_cmd_lib_arg)
+void show_cmd_help (T_UI_CMD *pt_cmd_lib_arg)
 {
 
-    T_CP_CMD *pt_cmd_lib;
+    T_UI_CMD *pt_cmd_lib;
     WCHAR    *pc_cmd_token;
 
     wprintf(L"\n Not implemented yet                   \n");

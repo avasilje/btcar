@@ -14,57 +14,55 @@
 #include <windows.h>
 #include <wchar.h>
 #include "cmd_lib.h"
+#include "io_csr_ui_cmd.h"
+#include "io_csr_dev_cmd.h"
 
-//----------------------------------------------------------
-struct t_cmd_init_tag
-{
-    T_UI_CMD   eomsg;
-};                          
-
-extern struct t_cmd_init_tag gt_cmd_init;
-
-//----------------------------------------------------------
-struct t_cmd_sign_tag
-{
-    T_UI_CMD   eomsg;
+//---------------------------------------------------------------------------
+t_cmd_sign_tag gt_cmd_sign = {
+    {NULL, CFT_LAST, 0, 0}
 };
 
-extern struct t_cmd_sign_tag gt_cmd_sign;
-
-//----------------------------------------------------------
-struct t_cmd_mcu_led_tag
-{
-    T_UI_CMD   green;
-    T_UI_CMD   red;
-    T_UI_CMD   eomsg;
+//---------------------------------------------------------------------------
+t_cmd_mcu_led_tag gt_cmd_mcu_led = {
+    {L"GREEN"  ,  CFT_NUM,      0,           0},
+    {L"RED"    ,  CFT_NUM,      0,           0},
+    {NULL, CFT_LAST, 0, 0}
 };
 
-extern struct t_cmd_mcu_led_tag gt_cmd_mcu_led;
+
+//---------------------------------------------------------------------------
+
+WCHAR ca_lbs_str[LOOPBACK_STRING_DATA_LEN] = L"--LOOPBACK_TEST_STRING--";
+t_cmd_loopback_tag gt_cmd_loopback = {
+    {L"STR"    ,  CFT_TXT,      LOOPBACK_STRING_DATA_LEN,  (DWORD)ca_lbs_str},
+    {NULL, CFT_LAST, 0, 0}
+};
+
 
 #if 0
-//----------------------------------------------------------
-struct t_cmd_???_tag
-{
-    T_UI_CMD   ???;
-    T_UI_CMD   eomsg;
+//---------------------------------------------------------------------------
+t_cmd_???_tag gt_cmd_??? = {
+    {L"???"      ,  CFT_NUM,      0,           0},
+    {NULL, CFT_LAST, 0, 0}
 };
 
-extern struct t_cmd_???_tag gt_cmd_???;
+
+//---------------------------------------------------------------------------
+#define xxx_WR_DATA_LEN 128
+WCHAR ca_xxx_wr_data[xxx_WR_DATA_LEN];
+t_cmd_xxx_wr_tag gt_cmd_xxx_wr = {
+    {L"DATA"    ,  CFT_TXT,      xxx_WR_DATA_LEN,  (DWORD)ca_xxx_wr_data},
+    {NULL, CFT_LAST, 0, 0}
+};
 
 #endif // #if 0
 
-//T_IO_UI_CMD gta_ui_cmd[] = {
-//        { L"SIGN", (T_UI_CMD*)&gt_cmd_sign },
-//        { L"INIT", (T_UI_CMD*)&gt_cmd_init },
-//        { L"MLED", (T_UI_CMD*)&gt_cmd_mcu_led },
-//        { 0, 0 }
-//};
 
-T_UI_CMD gta_io_ui_cmd[] = {
-        { { L"SIGN", (T_UI_CMD*)&gt_cmd_sign    }, NULL },
-        { { L"INIT", (T_UI_CMD*)&gt_cmd_init    }, NULL },
-        { { L"MLED", (T_UI_CMD*)&gt_cmd_mcu_led }, NULL },
-        { { 0, 0 }
+T_UI_CMD gta_io_csr_ui_cmd[] = {
+        { L"SIGN",     (T_UI_CMD_FIELD*)&gt_cmd_sign,     (void*)cmd_io_sign     },
+        { L"MLED",     (T_UI_CMD_FIELD*)&gt_cmd_mcu_led,  (void*)cmd_io_mled     },
+        { L"LOOPBACK", (T_UI_CMD_FIELD*)&gt_cmd_loopback, (void*)cmd_io_loopback },
+        { 0, 0 }
 };
 
 

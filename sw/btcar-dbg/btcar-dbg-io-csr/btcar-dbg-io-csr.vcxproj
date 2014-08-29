@@ -78,6 +78,7 @@
   <ItemGroup>
     <ClInclude Include="io_csr.h" />
     <ClInclude Include="io_csr_dev_cmd.h" />
+    <ClInclude Include="io_csr_dev_resp.h" />
     <ClInclude Include="io_csr_ui_cmd.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

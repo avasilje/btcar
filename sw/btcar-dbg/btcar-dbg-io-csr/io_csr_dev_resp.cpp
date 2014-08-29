@@ -78,8 +78,14 @@ int dev_resp_read_payload()
     return TRUE;
 }
 
+void proceed_loopback_resp (void)
+{
 
-void proceed_dev_sign_resp(){
+    swprintf(gca_io_cmd_resp, RESP_STR_LEN, L"Response: %s\n", (WCHAR*)&guca_dev_resp[2]);
+}
+
+void proceed_dev_sign_resp (void)
+{
 
     WCHAR   ca_sign[256] = L"";
 
@@ -125,6 +131,9 @@ int dev_response_processing (void)
         case 0x11: // Device signature
             proceed_dev_sign_resp();        // Result in gca_io_cmd_resp
             break;
+        case 0x17: // Loopback. Just return input as is in WCHAR format
+            proceed_loopback_resp();        // Result in gca_io_cmd_resp
+            break;
         default:
             wprintf(L"Shit happens");
             while (1);
@@ -132,7 +141,18 @@ int dev_response_processing (void)
 
         // Send processed device response to IO
         // AV TODO: rework to TLV message
-        io_pipe_tx_str(gca_io_cmd_resp); // Get from gca_io_cmd_resp
+        {
+            size_t          t_msg_len;
+            BYTE            *pb_msg_buff = &gba_io_ui_tx_msg[0];
+
+            pb_msg_buff = add_tlv_str(pb_msg_buff, UI_IO_TLV_TYPE_CMD_RSP, gca_io_cmd_resp);
+
+            wprintf(L"UI INIT <-- IO : CMD Resp: %s\n", gca_io_cmd_resp);
+
+            t_msg_len = terminate_tlv_list(pb_msg_buff);
+            io_pipe_tx_byte(gba_io_ui_tx_msg, t_msg_len);
+        }
+
     }
     else
     { // gdw_dev_bytes_rcv < 2

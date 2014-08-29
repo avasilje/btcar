@@ -23,6 +23,7 @@
 #include "FTD2XX.H"
 #include "cmd_lib.h"
 #include "io_csr.h"
+#include "io_csr_ui_cmd.h"
 #include "io_csr_dev_cmd.h"
 
 #pragma pack(1)
@@ -98,7 +99,7 @@ cleanup_send_devcmd:
 
 }
 
-void cmd_io_dev_sign (void)
+void cmd_io_sign (void)
 {
     int n_rc;
     DWORD dw_byte_to_write;
@@ -118,7 +119,7 @@ void cmd_io_dev_sign (void)
     // ...
 
     if (!n_rc)
-        goto cmd_dev_sign_error;
+        goto cmd_sign_error;
     
     // ----------------------------------------
     // --- Initiate data transfer to MCU
@@ -128,14 +129,14 @@ void cmd_io_dev_sign (void)
     send_devcmd(dw_byte_to_write, (BYTE*)&t_cmd, L"DEV_SIGN");
     return;
 
-cmd_dev_sign_error:
+cmd_sign_error:
 
     wprintf(L"command error : DEV_SIGN\n");
     return;
 
 }
 
-void cmd_io_mled()
+void cmd_io_mled (void)
 {
     int n_rc;
     DWORD dw_byte_to_write;
@@ -175,6 +176,36 @@ cmd_io_mled_error:
 
 }
 
+void cmd_io_loopback (void)
+{
+    int n_rc;
+    DWORD dw_byte_to_write;
+
+    #pragma pack(1)
+    struct t_cmd_loopback {
+        struct t_cmd_hdr hdr;
+        WCHAR  ca_lbs[LOOPBACK_STRING_DATA_LEN];
+    } t_cmd = {{0x17, 0x00}, {0}};
+
+    // -----------------------------------------------
+    // --- write data from UI command to DEV command
+    // ------------------------------------------------
+    n_rc = TRUE;
+
+    size_t t_str_len;
+    t_str_len = wcslen(gt_cmd_loopback.lbs.pc_str);
+    t_cmd.hdr.uc_len = t_str_len*2 + 2;
+
+    memcpy(t_cmd.ca_lbs, gt_cmd_loopback.lbs.pc_str, t_cmd.hdr.uc_len);
+    // ----------------------------------------
+    // --- Initiate data transfer to MCU
+    // ----------------------------------------
+    dw_byte_to_write = sizeof(t_cmd.hdr) + t_cmd.hdr.uc_len;
+
+    send_devcmd(dw_byte_to_write, (BYTE*)&t_cmd, L"LOOPBACK");
+    return;
+
+}
 
 #if  0   // Command template                    
 void cmd_io_???()
