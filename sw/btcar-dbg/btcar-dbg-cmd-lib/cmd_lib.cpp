@@ -210,4 +210,66 @@ BYTE *add_tlv_dword(BYTE *pb_msg_buff, E_UI_IO_TLV_TYPE e_type, DWORD dw_val)
     return (pb_msg_buff + t_len);
 }
 
+BYTE* get_tlv_tl(BYTE *pb_buff, T_UI_IO_TLV *t_tlv)
+{
+    t_tlv->type = (E_UI_IO_TLV_TYPE)*pb_buff++;
+	if (t_tlv->type == UI_IO_TLV_TYPE_NONE)
+		return NULL;
+
+    t_tlv->len  = (int)*pb_buff++;
+	return pb_buff;
+}
+
+BYTE* get_tlv_v_str(BYTE *pb_buff, T_UI_IO_TLV *t_tlv)
+{
+    if (t_tlv->val_str == NULL)
+    {
+        wprintf(L"Att:Something wrong @ %d\n", __LINE__);
+        return NULL;
+    }
+
+    t_tlv->val_str =  (WCHAR*)malloc(t_tlv->len);
+	if (t_tlv->val_str == NULL)
+    {
+        wprintf(L"Att:Something wrong @ %d\n", __LINE__);
+        return NULL;
+    }
+
+    memcpy(t_tlv->val_str, pb_buff, t_tlv->len);
+    return (pb_buff + t_tlv->len);
+}
+
+BYTE* get_tlv_v_str_n(BYTE *pb_buff, T_UI_IO_TLV *t_tlv, int n_len)
+{
+    if (t_tlv->val_str == NULL || n_len < 0)
+    {
+        wprintf(L"Att:Something wrong @ %d\n", __LINE__);
+        return NULL;
+    }
+
+    t_tlv->val_str =  (WCHAR*)malloc(n_len);
+    memset(t_tlv->val_str, 0, n_len);
+
+	if (t_tlv->val_str == NULL)
+    {
+        wprintf(L"Att:Something wrong @ %d\n", __LINE__);
+        return NULL;
+    }
+
+    memcpy(t_tlv->val_str, pb_buff, t_tlv->len);
+    return (pb_buff + t_tlv->len);
+}
+
+BYTE* get_tlv_v_dword (BYTE *pb_buff, T_UI_IO_TLV *t_tlv)
+{
+	if (t_tlv->val_str == NULL)
+    {
+        wprintf(L"Att:Something wrong @ %d\n", __LINE__);
+        return NULL;
+    }
+
+	memcpy(&t_tlv->val_dword, pb_buff, sizeof(DWORD));
+	return (pb_buff + sizeof(DWORD));
+}
+
 

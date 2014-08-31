@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.30501.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "btcar-dbg-io-proc", "btcar-dbg-io-proc.vcxproj", "{67E0A164-82F3-4A9F-8E1C-478EA5578E9E}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "btcar-dbg-io-avrb", "btcar-dbg-io-avrb.vcxproj", "{67E0A164-82F3-4A9F-8E1C-478EA5578E9E}"
 	ProjectSection(ProjectDependencies) = postProject
 		{AA9EEA04-AADD-4FE0-964C-6BA6E1D9629C} = {AA9EEA04-AADD-4FE0-964C-6BA6E1D9629C}
 	EndProjectSection

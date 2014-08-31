@@ -9,15 +9,11 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
     </Filter>
-    <Filter Include="Resource Files">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    <Filter Include="dbg-io">
+      <UniqueIdentifier>{a52eca68-e834-4198-808c-314d28b0560f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="io_csr.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="io_csr_ui_cmd.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -27,11 +23,11 @@
     <ClCompile Include="io_csr_dev_resp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\btcar-dbg-io\dbg-io.cpp">
+      <Filter>dbg-io</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="io_csr.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="io_csr_ui_cmd.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -40,6 +36,12 @@
     </ClInclude>
     <ClInclude Include="io_csr_dev_resp.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\btcar-dbg-io\dbg-io.h">
+      <Filter>dbg-io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\btcar-dbg-io\dbg-io_int.h">
+      <Filter>dbg-io</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

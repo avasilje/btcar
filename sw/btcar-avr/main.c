@@ -237,7 +237,12 @@ int real_main()
 
     while(1){
         if (guc_mcu_cmd) {
+        __asm__ __volatile__ ("    nop\n    nop\n    nop\n    nop\n"::);
+
             guc_mcu_cmd = proceed_command(guc_mcu_cmd);
+
+        __asm__ __volatile__ ("    nop\n    nop\n    nop\n    nop\n"::);
+
         }
     }
 

@@ -11,8 +11,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{67E0A164-82F3-4A9F-8E1C-478EA5578E9E}</ProjectGuid>
-    <RootNamespace>btcardbgioproc</RootNamespace>
+    <ProjectGuid>{E7D3DF80-E88A-437E-95ED-B820BBFBBC2B}</ProjectGuid>
+    <RootNamespace>btcardbgcmdproc</RootNamespace>
+    <ProjectName>btcar-dbg-ui</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -26,7 +27,7 @@
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v120</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -44,13 +45,15 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\..\cmd_line_wc;..\..\ftdi_d2xx\CDM v2.10.00 WHQL Certified;..\btcar-dbg-cmd-proc;..\btcar-dbg-io-proc;..\btcar-dbg-cmd-lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\cmd_line_wc;..\btcar-dbg-io-proc;..\btcar-dbg-cmd-lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <BrowseInformation>true</BrowseInformation>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(TargetDir);..\..\ftdi_d2xx\CDM v2.10.00 WHQL Certified\i386</AdditionalLibraryDirectories>
-      <AdditionalDependencies>ftd2xx.lib;btcar-dbg-cmd-lib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(TargetDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>cmd_line_wc.lib;btcar-dbg-cmd-lib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -60,8 +63,6 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\MyWorks\BTCar\sw\btcar-dbg\btcar-dbg-cmd-lib;C:\MyWorks\BTCar\sw\ftdi\CDM v2.10.00 WHQL Certified;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -70,15 +71,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="io_proc.cpp" />
-    <ClCompile Include="io_proc_devcmd_def.cpp" />
-    <ClCompile Include="io_proc_devcmd.cpp" />
-    <ClCompile Include="io_proc_devresp.cpp" />
+    <ClCompile Include="dbg-ui.cpp" />
+    <ClCompile Include="dbg-ui_inp.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="io_proc.h" />
-    <ClInclude Include="io_proc_devcmd.h" />
-    <ClInclude Include="io_proc_devresp.h" />
+    <ClInclude Include="dbg-ui.h" />
+    <ClInclude Include="dbg-ui_inp.h" />
+    <ClInclude Include="dbg-ui_ui.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,6 +1,6 @@
 /***C*********************************************************************************************
 **
-** SRC-FILE     :   cmd_proc_inp.h
+** SRC-FILE     :   dbg_ui_inp.h
 **                                        
 ** PROJECT      :   CMD user interface
 **                                                                

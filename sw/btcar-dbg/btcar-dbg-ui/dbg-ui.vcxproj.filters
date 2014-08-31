@@ -15,21 +15,21 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="cmd_proc.cpp">
+    <ClCompile Include="dbg-ui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="cmd_proc_inp.cpp">
+    <ClCompile Include="dbg-ui_inp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="cmd_proc_inp.h">
+    <ClInclude Include="dbg-ui.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="cmd_proc.h">
+    <ClInclude Include="dbg-ui_inp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="cmd_proc_ui.h">
+    <ClInclude Include="dbg-ui_ui.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

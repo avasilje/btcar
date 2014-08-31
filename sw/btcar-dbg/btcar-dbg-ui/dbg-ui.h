@@ -15,11 +15,11 @@
 ** COPYRIGHT    :   
 **
 ****C*E******************************************************************************************/
-#ifndef __CMD_PROC_H__
-#define __CMD_PROC_H__
+#ifndef __DGB_UI_H__
+#define __DGB_UI_H__
 
 
-#define IO_RX_MSG_LEN 1024
+#define IO_PIPE_RX_BUFF_LEN 1024
 #define IO_TX_MSG_LEN 1024
 
 #define FL_CLR          0
@@ -37,12 +37,12 @@ typedef struct flags_tag{
 }CMD_PROC_FLAGS;
 
 #define HANDLE_KEYBOARD         0
-#define HANDLE_RX_IO_MSG        1
-#define HANDLE_TX_IO_MSG        2
-#define HANDLE_IO_PIPE          3
-#define HANDLE_LAST_HANDLE      4
+#define HANDLE_IO_PIPE_RX       1
+#define HANDLE_IO_PIPE          2
+#define HANDLE_LAST_HANDLE      3
 
 #define HANDLES_NUM HANDLE_LAST_HANDLE
 
+int io_pipe_tx_str(WCHAR *p_io_msg);
 
-#endif // __CMD_PROC_H__
+#endif // __DGB_UI_H__

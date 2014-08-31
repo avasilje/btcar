@@ -1,5 +1,5 @@
-#ifndef __IO_CSR_UI_CMD_H__
-#define __IO_CSR_UI_CMD_H__
+#ifndef __IO_AVRB_UI_CMD_H__
+#define __IO_AVRB_UI_CMD_H__
 
 //----------------------------------------------------------
 struct t_cmd_sign_tag{
@@ -40,4 +40,5 @@ extern struct t_cmd_???_tag gt_cmd_???;
 #endif // #if 0
 
 
-#endif // !__IO_CSR_UI_CMD_H__
+#endif // !__IO_AVRB_UI_CMD_H__
+

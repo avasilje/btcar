@@ -10,19 +10,21 @@
 **
 ** AUTHOR       :   AV
 **
-** DESCRIPTION  :   The functions set to convert user commands from CMD_PROC_CMD_LIB to device commands
-**                  Typicall function extract data from incoming user's command, repack them into
-**                  binary packet and sends to the device
+** DESCRIPTION  :   The file define the set of functions to convert user 
+**                  commands from UI to device commands.
+**                  Device - AVR Back door
+**                  Typicall function extract data from incoming command,
+**                  repack them into binary packet and sends to the device.
 **                  
 ** COPYRIGHT    :   (c) 2011 Andrejs Vasiljevs. All rights reserved.
 **
-****C*E******************************************************************************************/
+****C*E************************************************************************/
 #include <windows.h>
 #include <wchar.h>
-#include "FTD2XX.H"
-#include "io_proc.h"
-#include "io_proc_devcmd.h"
 #include "cmd_lib.h"
+#include "dbg-io.h"
+#include "io_avrb_ui_cmd.h"
+#include "io_avrb_dev_cmd.h"
 
 #pragma pack(1)
 struct t_cmd_hdr {
@@ -30,73 +32,8 @@ struct t_cmd_hdr {
     BYTE    uc_len;
 };
 
-OVERLAPPED gt_tx_io_overlapped = { 0 };
 
-void send_devcmd(DWORD dw_byte_to_write, unsigned char *pc_cmd, const WCHAR *pc_cmd_name){
-
-    int n_rc, n_gle;
-    DWORD dw_bytes_written;
-
-    if (gt_flags.dev_conn != FL_SET) return;
-
-    { // print out raw command
-        DWORD i;
-        wprintf(L"\n--------------------------------- %s : %0X", pc_cmd_name, pc_cmd[0]);
-
-        for (i = 1; i <  dw_byte_to_write; i++)
-        {
-            wprintf(L"-%02X", pc_cmd[i]);
-        }
-        wprintf(L"\n");
-    }
-
-    n_rc = FT_W32_WriteFile(
-        gh_btcar_dev,
-        pc_cmd, 
-        dw_byte_to_write,
-        &dw_bytes_written, 
-        &gt_tx_io_overlapped);
-
-    if (!n_rc)
-    {
-        n_gle = FT_W32_GetLastError(gh_btcar_dev);
-        if (n_gle != ERROR_IO_PENDING)
-        {
-            n_rc = FALSE;
-            goto cleanup_send_devcmd;
-        }
-    }
-
-    n_rc = FT_W32_GetOverlappedResult(gh_btcar_dev, &gt_tx_io_overlapped, &dw_bytes_written, TRUE);
-    if (!n_rc || (dw_byte_to_write != dw_bytes_written))
-    {
-        n_rc = FALSE;
-        goto cleanup_send_devcmd;
-    }
-
-    n_rc = TRUE;
-
-    // lock further command processing until response received
-    // ...
-
-cleanup_send_devcmd:
-
-    if (n_rc)
-    {
-        wprintf(L"io --> mcu : %s \n", pc_cmd_name);
-    }
-    else
-    {
-        wprintf(L"Error writing command %s\n", pc_cmd_name);
-        gt_flags.dev_conn = FL_FALL;
-        SetEvent(gha_events[HANDLE_NOT_IDLE]);
-    }
-
-    return;
-
-}
-
-void cmd_io_dev_sign()
+void cmd_io_sign (void)
 {
     int n_rc;
     DWORD dw_byte_to_write;
@@ -116,24 +53,24 @@ void cmd_io_dev_sign()
     // ...
 
     if (!n_rc)
-        goto cmd_dev_sign_error;
+        goto cmd_sign_error;
     
     // ----------------------------------------
     // --- Initiate data transfer to MCU
     // ----------------------------------------
     dw_byte_to_write = sizeof(t_cmd.hdr) + t_cmd.hdr.uc_len;
 
-    send_devcmd(dw_byte_to_write, (unsigned char *)&t_cmd, L"DEV_SIGN");
+    dev_tx(dw_byte_to_write, (BYTE*)&t_cmd, L"SIGN");
     return;
 
-cmd_dev_sign_error:
+cmd_sign_error:
 
     wprintf(L"command error : DEV_SIGN\n");
     return;
 
 }
 
-void cmd_io_mled()
+void cmd_io_mled (void)
 {
     int n_rc;
     DWORD dw_byte_to_write;
@@ -163,7 +100,7 @@ void cmd_io_mled()
     // ----------------------------------------
     dw_byte_to_write = sizeof(t_cmd.hdr) + t_cmd.hdr.uc_len;
 
-    send_devcmd(dw_byte_to_write, (unsigned char *)&t_cmd, L"MLED");
+    dev_tx(dw_byte_to_write, (BYTE*)&t_cmd, L"MLED");
     return;
 
 cmd_io_mled_error:
@@ -173,6 +110,36 @@ cmd_io_mled_error:
 
 }
 
+void cmd_io_loopback (void)
+{
+    int n_rc;
+    DWORD dw_byte_to_write;
+
+    #pragma pack(1)
+    struct t_cmd_loopback {
+        struct t_cmd_hdr hdr;
+        WCHAR  ca_lbs[LOOPBACK_STRING_DATA_LEN];
+    } t_cmd = {{0x17, 0x00}, {0}};
+
+    // -----------------------------------------------
+    // --- write data from UI command to DEV command
+    // ------------------------------------------------
+    n_rc = TRUE;
+
+    size_t t_str_len;
+    t_str_len = wcslen(gt_cmd_loopback.lbs.pc_str);
+    t_cmd.hdr.uc_len = t_str_len*2 + 2;
+
+    memcpy(t_cmd.ca_lbs, gt_cmd_loopback.lbs.pc_str, t_cmd.hdr.uc_len);
+    // ----------------------------------------
+    // --- Initiate data transfer to MCU
+    // ----------------------------------------
+    dw_byte_to_write = sizeof(t_cmd.hdr) + t_cmd.hdr.uc_len;
+
+    dev_tx(dw_byte_to_write, (BYTE*)&t_cmd, L"LOOPBACK");
+    return;
+
+}
 
 #if  0   // Command template                    
 void cmd_io_???()
@@ -205,7 +172,7 @@ void cmd_io_???()
     // ----------------------------------------
     dw_byte_to_write = sizeof(t_cmd.hdr) + t_cmd.hdr.uc_len;
 
-    send_devcmd(dw_byte_to_write, (unsigned char *)&t_cmd, L"???");
+    dev_tx(dw_byte_to_write, (BYTE*)&t_cmd, L"???");
     return;
 
 cmd_io_???_error:

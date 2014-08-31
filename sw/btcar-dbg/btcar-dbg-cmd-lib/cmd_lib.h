@@ -88,6 +88,7 @@ typedef enum E_UI_IO_TLV_TYPE_tag
     
     UI_IO_TLV_TYPE_CMD_NAME     = 0x30,
     UI_IO_TLV_TYPE_CMD_FLD_CNT,
+    UI_IO_TLV_TYPE_CMD_INIT_STR,
 
     UI_IO_TLV_TYPE_FLD_NAME     = 0x40,
     UI_IO_TLV_TYPE_FLD_TYPE,
@@ -111,7 +112,12 @@ typedef struct T_UI_IO_TLV_tag
     DWORD               val_dword;
 } T_UI_IO_TLV;
 
-BYTE    *add_tlv_str  (BYTE *pb_msg_buff, E_UI_IO_TLV_TYPE e_type, WCHAR *pc_str);
-BYTE    *add_tlv_dword(BYTE *pb_msg_buff, E_UI_IO_TLV_TYPE e_type, DWORD dw_val);
+BYTE    *add_tlv_str     (BYTE *pb_msg_buff, E_UI_IO_TLV_TYPE e_type, WCHAR *pc_str);
+BYTE    *add_tlv_dword   (BYTE *pb_msg_buff, E_UI_IO_TLV_TYPE e_type, DWORD dw_val);
+
+BYTE    *get_tlv_tl      (BYTE *pb_buff, T_UI_IO_TLV *t_tlv);
+BYTE    *get_tlv_v_str   (BYTE *pb_buff, T_UI_IO_TLV *t_tlv);
+BYTE    *get_tlv_v_str_n (BYTE *pb_buff, T_UI_IO_TLV *t_tlv, int n_len);
+BYTE    *get_tlv_v_dword (BYTE *pb_buff, T_UI_IO_TLV *t_tlv);
 
 #endif // __CMD_LIB_H__

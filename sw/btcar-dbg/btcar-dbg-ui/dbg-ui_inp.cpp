@@ -1,6 +1,6 @@
 /***C*********************************************************************************************
 **
-** SRC-FILE     :   cmd_proc_inp.cpp
+** SRC-FILE     :   dbg_ui_inp.cpp
 **                                        
 ** PROJECT      :   user interface
 **                                                                
@@ -22,7 +22,7 @@
 #include <time.h>
 #include "cmd_line_wc.h"
 #include "cmd_lib.h"
-#include "cmd_proc_inp.h"
+#include "dbg-ui_inp.h"
 
 void match_case (WCHAR *pc_str, WCHAR *pc_template)
 {

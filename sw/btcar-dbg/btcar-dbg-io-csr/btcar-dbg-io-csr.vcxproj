@@ -44,7 +44,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\..\cmd_line_wc;..\..\ftdi_d2xx\CDM v2.10.00 WHQL Certified;..\btcar-dbg-cmd-proc;..\btcar-dbg-io-proc;..\btcar-dbg-cmd-lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\cmd_line_wc;..\..\ftdi_d2xx\CDM v2.10.00 WHQL Certified;..\btcar-dbg-cmd-proc;..\btcar-dbg-io;..\btcar-dbg-cmd-lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <BrowseInformation>true</BrowseInformation>
     </ClCompile>
     <Link>
@@ -52,6 +52,9 @@
       <AdditionalLibraryDirectories>$(TargetDir);..\..\ftdi_d2xx\CDM v2.10.00 WHQL Certified\i386</AdditionalLibraryDirectories>
       <AdditionalDependencies>ftd2xx.lib;btcar-dbg-cmd-lib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <Bscmake>
+      <PreserveSbr>true</PreserveSbr>
+    </Bscmake>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -70,13 +73,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="io_csr.cpp" />
+    <ClCompile Include="..\btcar-dbg-io\dbg-io.cpp" />
     <ClCompile Include="io_csr_ui_cmd.cpp" />
     <ClCompile Include="io_csr_dev_cmd.cpp" />
     <ClCompile Include="io_csr_dev_resp.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="io_csr.h" />
+    <ClInclude Include="..\btcar-dbg-io\dbg-io.h" />
+    <ClInclude Include="..\btcar-dbg-io\dbg-io_int.h" />
     <ClInclude Include="io_csr_dev_cmd.h" />
     <ClInclude Include="io_csr_dev_resp.h" />
     <ClInclude Include="io_csr_ui_cmd.h" />

@@ -1,12 +1,12 @@
 /***C*********************************************************************************************
 **
-** SRC-FILE     :   io_csr.cpp
+** SRC-FILE     :   io_avrb_ui_cmd.cpp
 **
 ** PROJECT      :   BTCAR
 **
 ** AUTHOR       :   AV
 **
-** DESCRIPTION  :   Set of UI cmd for CSR UART
+** DESCRIPTION  :   Set of UI cmd for AVR Backdoor
 **
 ** COPYRIGHT    :
 **
@@ -14,8 +14,8 @@
 #include <windows.h>
 #include <wchar.h>
 #include "cmd_lib.h"
-#include "io_csr_ui_cmd.h"
-#include "io_csr_dev_cmd.h"
+#include "io_avrb_ui_cmd.h"
+#include "io_avrb_dev_cmd.h"
 
 //---------------------------------------------------------------------------
 t_cmd_sign_tag gt_cmd_sign = {
@@ -66,8 +66,8 @@ T_UI_CMD gta_io_ui_cmd[] = {
 };
 
 
-WCHAR gca_pipe_name[] = L"\\\\.\\pipe\\io_csr";
-WCHAR gca_ui_init_str[] = L"CSR UI";
+WCHAR gca_pipe_name[] = L"\\\\.\\pipe\\io_avrb";
+WCHAR gca_ui_init_str[] = L"AVRB UI";
 
 
 //---------------------------------------------------------------------------

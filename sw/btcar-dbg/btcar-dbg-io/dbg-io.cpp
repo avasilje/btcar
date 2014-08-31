@@ -1,8 +1,8 @@
 /***C*********************************************************************************************
 **
-** SRC-FILE     :   io_csr.cpp
+** SRC-FILE     :   dbg_io.cpp
 **                                        
-** PROJECT      :   BTCAR
+** PROJECT      :   
 **                                                                
 ** SRC-VERSION  :   
 **              
@@ -10,10 +10,10 @@
 **
 ** AUTHOR       :   AV
 **
-** DESCRIPTION  :   IO interface to CSR UART
-**                  Provides control logic between IO pipe (commands from user) and CRS debug IF.
-**                  Main functions are pass data from UI to BTCAR forth and back.
-**                  Also, keep device and IO pipe connections alive.
+** DESCRIPTION  :   Interconnect between DEVICE & UI 
+**                  Provides control logic between UI/IO pipe (commands from user) and DEVICE.
+**                  Main functions are pass data from UI to DEVICE forth and back.
+**                  Also, monitors & maintains UI & DEVICE connections
 **                  
 ** COPYRIGHT    :   
 **
@@ -23,47 +23,52 @@
 #include <stdio.h>
 #include "FTD2XX.H"
 #include "cmd_lib.h"
-#include "io_csr.h"
-#include "io_csr_ui_cmd.h"
-#include "io_csr_dev_resp.h"
+#include "dbg-io.h"
+#include "dbg-io_int.h"
 
+// ------------------------- GLOBAL VAR & DEFs --------------------------------
 T_IO_FLAGS gt_flags;
-
 HANDLE gha_events[HANDLES_NUM];
+
+HANDLE gh_dump_file;
+HANDLE gh_meas_log_file;
+
+
+// ---------------------------- IO PIPE ---------------------------------------
 HANDLE gh_io_pipe;
+OVERLAPPED gt_io_pipe_conn_overlap = { 0 };      // General pipe related event
 
+OVERLAPPED gt_io_pipe_rx_overlap = { 0 };        // Pipe RX related event
+OVERLAPPED gt_io_pipe_tx_overlap = { 0 };        // Pipe TX related event
+
+#define IO_PIPE_RX_BUFF_LEN 1024
+#define IO_PIPE_TX_BUFF_LEN 1024
+
+WCHAR gca_io_pipe_rx_buff[IO_PIPE_RX_BUFF_LEN];
+BYTE  gba_io_pipe_tx_buff[IO_PIPE_TX_BUFF_LEN];
+
+
+// ---------------------------- DEVICE ----------------------------------------
 FT_HANDLE gh_dev;
-
-OVERLAPPED gt_io_pipe_conn_overlap;            // General pipe related event
-OVERLAPPED gt_io_pipe_rx_overlap;        // Pipe RX related event
-OVERLAPPED gt_io_tx_overlap;
-
-#define CMD_PROC_CMD_BUFF_LEN 1024
-WCHAR gca_cmd_buff[CMD_PROC_CMD_BUFF_LEN];
-
-WCHAR gca_io_cmd_resp[RESP_STR_LEN];
-
-/* Internal global for MSG and STR composition */
-#define IO_UI_INIT_STR_LEN 1024
-#define IO_UI_INIT_MSG_LEN 1024
-
-BYTE  gba_io_ui_tx_msg[IO_UI_INIT_MSG_LEN];
-
-T_IO_UI gt_io_ui;
-
-// AV TODO: Move to UI dedicated part
-#define IO_PIPENAME_LEN 64
-WCHAR gca_pipe_name[IO_PIPENAME_LEN];
-
 OVERLAPPED gt_dev_rx_overlapped = { 0 };
+OVERLAPPED gt_dev_tx_overlapped = { 0 };
+
 DWORD gdw_dev_bytes_rcv;
 BYTE guca_dev_resp[1024];
 
 int gn_dev_index = 0;
 int gn_dev_resp_timeout;
 
-HANDLE gh_dump_file;
-HANDLE gh_meas_log_file;
+#define RESP_STR_LEN 1024
+WCHAR gca_dev_resp_str[RESP_STR_LEN];
+
+
+// ---------------------------- UI --------------------------------------------
+
+T_IO_UI gt_io_ui;
+
+// ----------------------------------------------------------------------------
+
 
 size_t terminate_tlv_list (BYTE *pb_msg_buff)
 {
@@ -71,9 +76,9 @@ size_t terminate_tlv_list (BYTE *pb_msg_buff)
 
     *pb_msg_buff++ = UI_IO_TLV_TYPE_NONE;
 
-    t_msg_len = pb_msg_buff - &gba_io_ui_tx_msg[0];
+    t_msg_len = pb_msg_buff - &gba_io_pipe_tx_buff[0];
 
-    if (t_msg_len > IO_UI_INIT_MSG_LEN || t_msg_len == 0)
+    if (t_msg_len > IO_PIPE_TX_BUFF_LEN || t_msg_len == 0)
     {
         wprintf(L"Att: Something wrong @ %d\n", __LINE__);
         return 0;
@@ -85,7 +90,7 @@ size_t terminate_tlv_list (BYTE *pb_msg_buff)
 int io_ui_init (void)
 {
     size_t          t_msg_len;
-    BYTE            *pb_msg_buff = &gba_io_ui_tx_msg[0];
+    BYTE            *pb_msg_buff = &gba_io_pipe_tx_buff[0];
 
     if (gt_io_ui.pt_curr_cmd != NULL)
     {   
@@ -94,15 +99,16 @@ int io_ui_init (void)
     }
 
     // Initialize current pointer on very first call after UI reset
-    gt_io_ui.pt_curr_cmd = gta_io_csr_ui_cmd;
+    gt_io_ui.pt_curr_cmd = gta_io_ui_cmd;
 
     // Send an INIT START command to UI
     pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_IO_TLV_TYPE_UI_CMD, (DWORD)IO_UI_UI_CMD_START);
+    pb_msg_buff = add_tlv_str(pb_msg_buff, UI_IO_TLV_TYPE_CMD_INIT_STR, gca_ui_init_str);
 
     wprintf(L"UI INIT <-- IO : Init start\n");
 
     t_msg_len = terminate_tlv_list(pb_msg_buff);
-    io_pipe_tx_byte(gba_io_ui_tx_msg, t_msg_len);
+    io_pipe_tx_byte(gba_io_pipe_tx_buff, t_msg_len);
 
     return TRUE;
 }
@@ -111,7 +117,7 @@ int io_ui_init_cont (void)
 {
     T_UI_CMD        *pt_curr_cmd;
     size_t          t_msg_len;
-    BYTE            *pb_msg_buff = &gba_io_ui_tx_msg[0];
+    BYTE            *pb_msg_buff = &gba_io_pipe_tx_buff[0];
 
     pt_curr_cmd   = gt_io_ui.pt_curr_cmd;
 
@@ -122,14 +128,13 @@ int io_ui_init_cont (void)
 
     }
 
-
     if (!pt_curr_cmd->pc_name)
     {   // All commands processed. Send an INIT END command to UI
         pb_msg_buff = add_tlv_dword(pb_msg_buff, UI_IO_TLV_TYPE_UI_CMD, (DWORD)IO_UI_UI_CMD_END);
         wprintf(L"UI INIT <-- IO : Init end\n");
     }
     else 
-    {   // Some commands still here. Continue sending...
+    {   // Some commands still there. Continue sending...
         DWORD   dw_fld_cnt;
         T_UI_CMD_FIELD  *pt_curr_field;
 
@@ -184,7 +189,7 @@ int io_ui_init_cont (void)
     }
 
     t_msg_len = terminate_tlv_list(pb_msg_buff);
-    io_pipe_tx_byte(gba_io_ui_tx_msg, t_msg_len);
+    io_pipe_tx_byte(gba_io_pipe_tx_buff, t_msg_len);
 
     return TRUE;
 }
@@ -216,19 +221,19 @@ int io_ui_cmd_proc (void)
     // --- Process command just read
     // ----------------------------------
     // Add command null termination
-    gca_cmd_buff[dw_bytes_transf >> 1] = '\0';
+    gca_io_pipe_rx_buff[dw_bytes_transf >> 1] = '\0';
 
     // Lookup command within library & decomposite it's values
-    pt_ui_cmd = decomposite_cp_cmd(gca_cmd_buff, gta_io_csr_ui_cmd, TRUE);
+    pt_ui_cmd = decomposite_cp_cmd(gca_io_pipe_rx_buff, gta_io_ui_cmd, TRUE);
 
     // If command not found check for exit or unknow command
     if (!pt_ui_cmd || !pt_ui_cmd->pt_fields)
     {
-        wprintf(L"UI --> IO :Unrecognized command %s. Try again\n", gca_cmd_buff);
+        wprintf(L"UI --> IO :Unrecognized command %s. Try again\n", gca_io_pipe_rx_buff);
     }
     else
     {
-        wprintf(L"UI --> IO : %s\n", gca_cmd_buff);
+        wprintf(L"UI --> IO : %s\n", gca_io_pipe_rx_buff);
 
         // Lookup & execute command functor
         // TODO: replace for registered functions lookup
@@ -278,6 +283,261 @@ int io_ui_check (void)
     }
 
     return TRUE;
+}
+
+int io_pipe_rx_init (void){
+
+    int n_rc, n_gle;
+
+    n_rc = ReadFile(
+        gh_io_pipe,                             //__in         HANDLE hFile,
+        gca_io_pipe_rx_buff,                    //__out        LPVOID lpBuffer,
+        IO_PIPE_RX_BUFF_LEN,                  //__in         DWORD nNumberOfBytesToRead,
+        NULL,                                   //__out_opt    LPDWORD lpNumberOfBytesRead,
+        &gt_io_pipe_rx_overlap);                //__inout_opt  LPOVERLAPPED lpOverlapped
+
+    if (!n_rc)
+    {
+        n_gle = GetLastError();
+        if (n_gle != ERROR_IO_PENDING && n_gle != ERROR_IO_INCOMPLETE)
+        {
+            //wprintf(L"something wrong @ %d. GLE=%d", __LINE__, n_gle);
+            gt_flags.io_conn = FL_FALL;
+            SetEvent(gha_events[HANDLE_IO_PIPE_CONN]);
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+
+}
+
+int io_pipe_rx_proc (void)
+{
+    int n_rc;
+    DWORD dw_bytes_transf;
+
+    // Get Overlapped result
+    n_rc = GetOverlappedResult(
+        gh_io_pipe,             //  __in   HANDLE hFile,
+        &gt_io_pipe_rx_overlap,      //  __in   LPOVERLAPPED lpOverlapped,
+        &dw_bytes_transf,       //  __out  LPDWORD lpNumberOfBytesTransferred,
+        FALSE                   //  __in   BOOL bWait
+        );
+
+    if (!n_rc)
+    {
+        wprintf(L"Can't read from IO pipe\n");
+        gt_flags.io_conn = FL_FALL;
+        return FALSE;
+    }
+
+    // AV TODO: remove it after TLV wrapping
+    if (gca_io_pipe_rx_buff[(dw_bytes_transf >> 1) - 1] != L'\0')
+    {
+        wprintf(L"Warn: Non terminated msg received @ %d\n", __LINE__);
+    }
+
+    // Check message type 
+    if (gt_flags.io_ui == FL_CLR && gt_flags.io_conn == FL_SET)
+    { 
+        wprintf(L"UI INIT --> IO : %s\n", gca_io_pipe_rx_buff);
+
+        if (_wcsicmp(gca_io_pipe_rx_buff, L"INIT") == 0)
+        {
+            gt_io_ui.pt_curr_cmd = NULL;
+            io_ui_init();
+        }
+        else if (_wcsicmp(gca_io_pipe_rx_buff, L"ACK") == 0)
+        {
+            io_ui_init_cont();
+        }
+        else if (_wcsicmp(gca_io_pipe_rx_buff, L"READY") == 0)
+        {
+            gt_flags.io_ui = FL_RISE;
+        }
+
+
+    }
+    else if (gt_flags.io_ui == FL_SET)
+    {
+        io_ui_cmd_proc();
+    }
+
+
+
+    return TRUE;
+}
+
+int io_pipe_tx_byte (BYTE *pc_io_msg, size_t t_msg_len)
+{
+
+    int n_rc, n_gle;
+
+    DWORD dw_n;
+    // Write back command response to UI
+    n_rc = WriteFile(
+        gh_io_pipe,                     //__in         HANDLE hFile,
+        pc_io_msg,                      //__in         LPCVOID lpBuffer,
+        t_msg_len,                      //__in         DWORD nNumberOfBytesToWrite, // why +2 ??? zero terminating
+        &dw_n,                          //__out_opt    LPDWORD lpNumberOfBytesWritten,
+        &gt_io_pipe_tx_overlap);        //__inout_opt  LPOVERLAPPED lpOverlapped
+
+    if (!n_rc)
+    {
+        n_gle = GetLastError();
+        if (n_gle != ERROR_IO_PENDING)
+        {
+            gt_flags.io_conn = FL_FALL;
+        }
+    }
+
+    return TRUE;
+}
+
+int io_pipe_init (void)
+{
+
+    gh_io_pipe = CreateNamedPipe(
+        gca_pipe_name,                                  //__in      LPCTSTR lpName,
+        PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,      //__in      DWORD dwOpenMode,
+        PIPE_TYPE_MESSAGE,                              //__in      DWORD dwPipeMode, 
+        2,                                              //__in      DWORD nMaxInstances,
+        8 * IO_PIPE_TX_BUFF_LEN,                        //__in      DWORD nOutBufferSize,
+        8 * IO_PIPE_RX_BUFF_LEN,                        //__in      DWORD nInBufferSize,
+        0,                                              //__in      DWORD nDefaultTimeOut,
+        NULL                                            //__in_opt  LPSECURITY_ATTRIBUTES lpSecurityAttributes
+        );
+
+
+    if (gh_io_pipe == INVALID_HANDLE_VALUE){
+        wprintf(L"Can't create IO pipe. Error @ %d", __LINE__);
+        return FALSE;
+    }
+
+    gt_flags.io_conn = FL_CLR;
+    gt_flags.io_ui = FL_CLR;
+
+    // Init input buffer
+    memset(gca_io_pipe_rx_buff, 0, IO_PIPE_RX_BUFF_LEN);
+
+    // Create IO PIPE data received event
+    gha_events[HANDLE_IO_PIPE_RX] = CreateEvent(
+        NULL,    // default security attribute 
+        FALSE,   // manual-reset event 
+        FALSE,   // initial state
+        NULL);   // unnamed event object 
+    gt_io_pipe_rx_overlap.hEvent = gha_events[HANDLE_IO_PIPE_RX];
+
+    // Creat pipe IO connection event
+    gha_events[HANDLE_IO_PIPE_CONN] = CreateEvent(
+        NULL,    // default security attribute 
+        FALSE,   // manual-reset event 
+        FALSE,   // initial state
+        NULL);   // unnamed event object 
+    gt_io_pipe_conn_overlap.hEvent = gha_events[HANDLE_IO_PIPE_CONN];
+
+    // Trigers connection check at startup. AKA "magic punch"
+    SetEvent(gha_events[HANDLE_IO_PIPE_CONN]);
+
+    return TRUE;
+}
+
+void io_pipe_close (void)
+{
+    // Close IO pipe
+    if (gh_io_pipe != INVALID_HANDLE_VALUE)
+        CloseHandle(gh_io_pipe);
+
+    // Close IO PIPE related events
+    if (gha_events[HANDLE_IO_PIPE_RX] != INVALID_HANDLE_VALUE)
+        CloseHandle(gha_events[HANDLE_IO_PIPE_RX]);
+
+    if (gha_events[HANDLE_IO_PIPE_CONN] != INVALID_HANDLE_VALUE)
+        CloseHandle(gha_events[HANDLE_IO_PIPE_RX]);
+
+    return;
+}
+
+int io_pipe_check (void)
+{
+
+    int n_rc, n_gle;
+
+    if (gt_flags.io_conn == FL_CLR || gt_flags.io_conn == FL_UNDEF)
+    {
+
+        // Wait until IO process connects to pipe
+        n_rc = ConnectNamedPipe(gh_io_pipe, &gt_io_pipe_conn_overlap);
+        if (n_rc != 0)
+        {
+            wprintf(L"\nCan't connect to IO pipe. Error @ %d", __LINE__);
+            return FALSE;
+        }
+
+        n_gle = GetLastError();
+        if (n_gle == ERROR_PIPE_CONNECTED)
+        {
+            gt_flags.io_conn = FL_RISE;
+            SetEvent(gha_events[HANDLE_IO_PIPE_CONN]);
+            wprintf(L"\nIO pipe %s connected\n", gca_pipe_name);
+        }
+        else if (n_gle == ERROR_IO_PENDING)
+        {
+            wprintf(L"\nWaiting IO pipe connection from UI side\n");
+        }
+        else //(n_gle == ERROR_NO_DATA)
+        {
+            gt_flags.io_conn = FL_FALL;
+            SetEvent(gha_events[HANDLE_IO_PIPE_CONN]);
+        }
+
+        return TRUE;
+    } // End of Connection CLR
+
+    if (gt_flags.io_conn == FL_SET)
+    {
+        return TRUE;
+    } // End of Connection SET
+
+    // IO pipe  just connected
+    if (gt_flags.io_conn == FL_RISE)
+    {
+        // IO pipe connected. Try to initiate very first read transaction
+        n_rc = io_pipe_rx_init();
+        if (n_rc)
+        {
+            gt_flags.io_conn = FL_SET;
+        }
+        else
+        {
+            gt_flags.io_conn = FL_CLR;
+        }
+
+        return TRUE;
+    } // End of Connection RISE
+
+    if (gt_flags.io_conn == FL_FALL)
+    {
+
+        wprintf(L"\nDisconnecting IO pipe\n");
+
+        gt_flags.io_conn = FL_CLR;
+
+        // Reset IO_UI 
+        gt_flags.io_ui = FL_FALL;
+
+        DisconnectNamedPipe(gh_io_pipe);
+
+        SetEvent(gha_events[HANDLE_IO_PIPE_CONN]);
+
+        return TRUE;
+    } // End of Connection FALL
+
+
+    // PC should never hits here
+    return FALSE;
+
 }
 
 int dev_open_uart (int n_dev_indx, FT_HANDLE *ph_device)
@@ -486,8 +746,14 @@ int dev_open (void)
 
     int n_rc;
 
+#ifdef DEV_FT_TYPE_UART
+    // Try to locate and open device on USB bus
+    n_rc = dev_open_uart(gn_dev_index, &gh_dev);
+#else
     // Try to locate and open device on USB bus
     n_rc = dev_open_fifo(gn_dev_index, &gh_dev);
+
+#endif 
 
     if (!n_rc)
     {
@@ -552,7 +818,7 @@ int dev_clear_fifos (void)
     return (t_ft_st == FT_OK);
 }
 
-int dev_rx_init (DWORD dw_dev_resp_req_len )
+int dev_rx_init (DWORD dw_dev_resp_req_len)
 {
 
     int n_rc, n_gle;
@@ -580,11 +846,154 @@ int dev_rx_init (DWORD dw_dev_resp_req_len )
     return TRUE;
 }
 
+int dev_rx (DWORD dw_len, BYTE *pb_data)
+{
+   // Read out payload 
+    DWORD dw_bytes_rcv;
+    int n_rc;
+
+    if (dw_len == 0)
+        return TRUE;
+
+    n_rc = FT_W32_ReadFile(
+        gh_dev,
+        pb_data, 
+        dw_len,
+        &dw_bytes_rcv, 
+        &gt_dev_rx_overlapped);
+
+    if (n_rc == 0)
+    {
+        n_rc = FT_W32_GetLastError(gh_dev);
+        if ( n_rc != ERROR_IO_PENDING) 
+        {
+            // log an error
+            // sent something to UI
+            while(1);
+        }
+
+        dw_bytes_rcv = 0;
+        n_rc = FT_W32_GetOverlappedResult(
+            gh_dev,         
+            &gt_dev_rx_overlapped,
+            &dw_bytes_rcv,
+            TRUE);
+    }
+
+    if (dw_bytes_rcv != dw_len)
+    {  
+        wprintf(L"Error in command response\n");
+        /* Dump received command */
+        // ...
+
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
 int dev_rx_proc (void)
 {
-    // Only responses expected from DEV so far
-    dev_response_processing();
+    int     n_rc;
+    size_t  t_msg_len;
+    BYTE    *pb_msg_buff = &gba_io_pipe_tx_buff[0];
+    T_DEV_RSP t_resp;
+
+    if (gdw_dev_bytes_rcv < 2)
+    { 
+        wprintf(L"Garbage received\n");
+        return FALSE;
+    }
+
+    /* Device response header has been received
+     * Readout response payload
+     */
+
+    t_resp.b_cmd = guca_dev_resp[0];
+    t_resp.b_len = guca_dev_resp[1];
+    t_resp.pb_data = &guca_dev_resp[2];
+
+    if (!dev_rx(t_resp.b_len, t_resp.pb_data))
+    {
+        dev_clear_fifos();
+        return TRUE;
+    }
+    
+    // Only responses expected from DEV so far. Process response.
+    n_rc = dev_response_processing(&t_resp, gca_dev_resp_str, RESP_STR_LEN);
+
+    // Send response message to UI in human readable format 
+    pb_msg_buff = add_tlv_str(pb_msg_buff, UI_IO_TLV_TYPE_CMD_RSP, gca_dev_resp_str);
+
+    t_msg_len = terminate_tlv_list(pb_msg_buff);
+    io_pipe_tx_byte(gba_io_pipe_tx_buff, t_msg_len);
+
     return TRUE;
+}
+
+void dev_tx (DWORD dw_byte_to_write, BYTE *pc_cmd, const WCHAR *pc_cmd_name)
+{
+
+    int n_rc, n_gle;
+    DWORD dw_bytes_written;
+
+    if (gt_flags.dev_conn != FL_SET) return;
+
+    { // print out raw command
+        DWORD i;
+        wprintf(L"\n--------------------------------- %s : %0X", pc_cmd_name, pc_cmd[0]);
+
+        for (i = 1; i <  dw_byte_to_write; i++)
+        {
+            wprintf(L"-%02X", pc_cmd[i]);
+        }
+        wprintf(L"\n");
+    }
+
+    n_rc = FT_W32_WriteFile(
+        gh_dev,
+        pc_cmd, 
+        dw_byte_to_write,
+        &dw_bytes_written, 
+        &gt_dev_tx_overlapped);
+
+    if (!n_rc)
+    {
+        n_gle = FT_W32_GetLastError(gh_dev);
+        if (n_gle != ERROR_IO_PENDING)
+        {
+            n_rc = FALSE;
+            goto cleanup_dev_tx;
+        }
+    }
+
+    n_rc = FT_W32_GetOverlappedResult(gh_dev, &gt_dev_tx_overlapped, &dw_bytes_written, TRUE);
+    if (!n_rc || (dw_byte_to_write != dw_bytes_written))
+    {
+        n_rc = FALSE;
+        goto cleanup_dev_tx;
+    }
+
+    n_rc = TRUE;
+
+    // lock further command processing until response received
+    // ...
+
+cleanup_dev_tx:
+
+    if (n_rc)
+    {
+        wprintf(L"io --> mcu : %s \n", pc_cmd_name);
+    }
+    else
+    {
+        wprintf(L"Error writing command %s\n", pc_cmd_name);
+        gt_flags.dev_conn = FL_FALL;
+        SetEvent(gha_events[HANDLE_NOT_IDLE]);
+    }
+
+    return;
+
 }
 
 int dev_check (void)
@@ -625,302 +1034,6 @@ int dev_check (void)
     }
 
     return TRUE;
-}
-
-int io_pipe_rx_init (void){
-
-    int n_rc, n_gle;
-
-    n_rc = ReadFile(
-        gh_io_pipe,                             //__in         HANDLE hFile,
-        gca_cmd_buff,                           //__out        LPVOID lpBuffer,
-        CMD_PROC_CMD_BUFF_LEN,                  //__in         DWORD nNumberOfBytesToRead,
-        NULL,                                   //__out_opt    LPDWORD lpNumberOfBytesRead,
-        &gt_io_pipe_rx_overlap);                     //__inout_opt  LPOVERLAPPED lpOverlapped
-
-    if (!n_rc)
-    {
-        n_gle = GetLastError();
-        if (n_gle != ERROR_IO_PENDING && n_gle != ERROR_IO_INCOMPLETE)
-        {
-            //wprintf(L"something wrong @ %d. GLE=%d", __LINE__, n_gle);
-            gt_flags.io_conn = FL_FALL;
-            SetEvent(gha_events[HANDLE_IO_PIPE_CONN]);
-            return FALSE;
-        }
-    }
-
-    return TRUE;
-
-}
-
-int io_pipe_rx_proc (void)
-{
-    int n_rc;
-    DWORD dw_bytes_transf;
-
-    // Get Overlapped result
-    n_rc = GetOverlappedResult(
-        gh_io_pipe,             //  __in   HANDLE hFile,
-        &gt_io_pipe_rx_overlap,      //  __in   LPOVERLAPPED lpOverlapped,
-        &dw_bytes_transf,       //  __out  LPDWORD lpNumberOfBytesTransferred,
-        FALSE                   //  __in   BOOL bWait
-        );
-
-    if (!n_rc)
-    {
-        wprintf(L"Can't read from IO pipe\n");
-        gt_flags.io_conn = FL_FALL;
-        return FALSE;
-    }
-
-    // AV TODO: remove it after TLV wrapping
-    if (gca_cmd_buff[(dw_bytes_transf >> 1) - 1] != L'\0')
-    {
-        wprintf(L"Warn: Non terminated msg received\n", __LINE__);
-    }
-
-    // Check message type 
-    if (gt_flags.io_ui == FL_CLR && gt_flags.io_conn == FL_SET)
-    { 
-        wprintf(L"UI INIT --> IO : %s\n", gca_cmd_buff);
-
-        if (_wcsicmp(gca_cmd_buff, L"INIT") == 0)
-        {
-            gt_io_ui.pt_curr_cmd = NULL;
-            io_ui_init();
-        }
-        else if (_wcsicmp(gca_cmd_buff, L"ACK") == 0)
-        {
-            io_ui_init_cont();
-        }
-        else if (_wcsicmp(gca_cmd_buff, L"READY") == 0)
-        {
-            gt_flags.io_ui = FL_RISE;
-        }
-
-
-    }
-    else if (gt_flags.io_ui == FL_SET)
-    {
-        io_ui_cmd_proc();
-    }
-
-
-
-    return TRUE;
-}
-
-int io_pipe_tx_str (WCHAR *pc_io_str)
-{
-
-    int n_rc, n_gle;
-
-    if (wcslen(pc_io_str) == 0)
-        return TRUE;
-
-    DWORD dw_n;
-
-    // Write back command response to UI
-    n_rc = WriteFile(
-        gh_io_pipe,                     //__in         HANDLE hFile,
-        pc_io_str,                      //__in         LPCVOID lpBuffer,
-        wcslen(pc_io_str)*2+2,          //__in         DWORD nNumberOfBytesToWrite,
-        &dw_n,                          //__out_opt    LPDWORD lpNumberOfBytesWritten,
-        &gt_io_tx_overlap);             //__inout_opt  LPOVERLAPPED lpOverlapped
-
-    if (!n_rc)
-    {
-        n_gle = GetLastError();
-        if (n_gle != ERROR_IO_PENDING)
-        {
-            gt_flags.io_conn = FL_FALL;
-        }
-    }
-
-    return TRUE;
-}
-
-int io_pipe_tx_byte (BYTE *pc_io_msg, size_t t_msg_len)
-{
-
-    int n_rc, n_gle;
-
-    DWORD dw_n;
-    // Write back command response to UI
-    n_rc = WriteFile(
-        gh_io_pipe,                     //__in         HANDLE hFile,
-        pc_io_msg,                      //__in         LPCVOID lpBuffer,
-        t_msg_len,                      //__in         DWORD nNumberOfBytesToWrite, // why +2 ??? zero terminating
-        &dw_n,                          //__out_opt    LPDWORD lpNumberOfBytesWritten,
-        &gt_io_tx_overlap);             //__inout_opt  LPOVERLAPPED lpOverlapped
-
-    if (!n_rc)
-    {
-        n_gle = GetLastError();
-        if (n_gle != ERROR_IO_PENDING)
-        {
-            gt_flags.io_conn = FL_FALL;
-        }
-    }
-
-    return TRUE;
-}
-
-int io_pipe_init (int argc, WCHAR *pc_pipe_name)
-{
-
-    if (argc < 2)
-    {
-        pc_pipe_name = L"\\\\.\\pipe\\csr_io_ui";
-    }
-
-    wcscpy_s(gca_pipe_name, IO_PIPENAME_LEN, pc_pipe_name);
-    if (wcslen(pc_pipe_name) >= IO_PIPENAME_LEN) {
-        wprintf(L"Error: Pipe name too long %s -> %s\n", pc_pipe_name, gca_pipe_name);
-        return FALSE;
-    }
-
-    gh_io_pipe = CreateNamedPipe(
-        gca_pipe_name,                                  //__in      LPCTSTR lpName,
-        PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,      //__in      DWORD dwOpenMode, ??? FILE_FLAG_OVERLAPPED ???
-        PIPE_TYPE_MESSAGE,                              //__in      DWORD dwPipeMode, 
-        2,                                              //__in      DWORD nMaxInstances, ???1???
-        8 * IO_RX_MSG_LEN,                                //__in      DWORD nOutBufferSize,
-        8 * IO_RX_MSG_LEN,                                //__in      DWORD nInBufferSize,
-        0,                                              //__in      DWORD nDefaultTimeOut,
-        NULL                                            //__in_opt  LPSECURITY_ATTRIBUTES lpSecurityAttributes
-        );
-
-
-    if (gh_io_pipe == INVALID_HANDLE_VALUE){
-        wprintf(L"Can't create IO pipe. Error @ %d", __LINE__);
-        return FALSE;
-    }
-
-    gt_flags.io_conn = FL_CLR;
-    gt_flags.io_ui = FL_CLR;
-
-    // Init input buffer
-    wmemset(gca_cmd_buff, 0, CMD_PROC_CMD_BUFF_LEN);
-
-    // Create IO PIPE data received event
-    gha_events[HANDLE_IO_PIPE_RX] = CreateEvent(
-        NULL,    // default security attribute 
-        FALSE,   // manual-reset event 
-        FALSE,   // initial state
-        NULL);   // unnamed event object 
-    gt_io_pipe_rx_overlap.hEvent = gha_events[HANDLE_IO_PIPE_RX];
-
-    // Creat pipe IO connection event
-    gha_events[HANDLE_IO_PIPE_CONN] = CreateEvent(
-        NULL,    // default security attribute 
-        FALSE,   // manual-reset event 
-        FALSE,   // initial state
-        NULL);   // unnamed event object 
-    gt_io_pipe_conn_overlap.hEvent = gha_events[HANDLE_IO_PIPE_CONN];
-
-    // Trigers connection check at startup. AKA "magic punch"
-    SetEvent(gha_events[HANDLE_IO_PIPE_CONN]);
-
-    return TRUE;
-}
-
-void io_pipe_close (void)
-{
-    // Close IO pipe
-    if (gh_io_pipe != INVALID_HANDLE_VALUE)
-        CloseHandle(gh_io_pipe);
-
-    // Close IO PIPE related events
-    if (gha_events[HANDLE_IO_PIPE_RX] != INVALID_HANDLE_VALUE)
-        CloseHandle(gha_events[HANDLE_IO_PIPE_RX]);
-
-    if (gha_events[HANDLE_IO_PIPE_CONN] != INVALID_HANDLE_VALUE)
-        CloseHandle(gha_events[HANDLE_IO_PIPE_RX]);
-
-    return;
-}
-
-int io_pipe_check (void)
-{
-
-    int n_rc, n_gle;
-
-    if (gt_flags.io_conn == FL_CLR || gt_flags.io_conn == FL_UNDEF)
-    {
-
-        // Wait until IO process connects to pipe
-        n_rc = ConnectNamedPipe(gh_io_pipe, &gt_io_pipe_conn_overlap);
-        if (n_rc != 0)
-        {
-            wprintf(L"\nCan't connect to IO pipe. Error @ %d", __LINE__);
-            return FALSE;
-        }
-
-        n_gle = GetLastError();
-        if (n_gle == ERROR_PIPE_CONNECTED)
-        {
-            gt_flags.io_conn = FL_RISE;
-            SetEvent(gha_events[HANDLE_IO_PIPE_CONN]);
-            wprintf(L"\nIO pipe connected\n");
-        }
-        else if (n_gle == ERROR_IO_PENDING)
-        {
-            wprintf(L"\nWaiting IO pipe connection from UI side\n");
-        }
-        else //(n_gle == ERROR_NO_DATA)
-        {
-            gt_flags.io_conn = FL_FALL;
-            SetEvent(gha_events[HANDLE_IO_PIPE_CONN]);
-        }
-
-        return TRUE;
-    } // End of Connection CLR
-
-    if (gt_flags.io_conn == FL_SET)
-    {
-        return TRUE;
-    } // End of Connection SET
-
-    // IO pipe  just connected
-    if (gt_flags.io_conn == FL_RISE)
-    {
-        // IO pipe connected. Try to initiate very first read transaction
-        n_rc = io_pipe_rx_init();
-        if (n_rc)
-        {
-            gt_flags.io_conn = FL_SET;
-        }
-        else
-        {
-            gt_flags.io_conn = FL_CLR;
-        }
-
-        return TRUE;
-    } // End of Connection RISE
-
-    if (gt_flags.io_conn == FL_FALL)
-    {
-
-        wprintf(L"\nDisconnecting IO pipe\n");
-
-        gt_flags.io_conn = FL_CLR;
-
-        // Reset IO_UI 
-        gt_flags.io_ui = FL_FALL;
-
-        DisconnectNamedPipe(gh_io_pipe);
-
-        SetEvent(gha_events[HANDLE_IO_PIPE_CONN]);
-
-        return TRUE;
-    } // End of Connection FALL
-
-
-    // PC should never hits here
-    return FALSE;
-
 }
 
 /***C*F******************************************************************************************
@@ -985,6 +1098,7 @@ int main_loop_wait (void)
     { // Incoming command from IO pipe
 
         io_pipe_rx_proc();
+        
         io_pipe_rx_init();
 
         return n_rc;
@@ -999,7 +1113,11 @@ int main_loop_wait (void)
 
         if (n_rc)
         {
-            n_rc = dev_rx_proc();
+            if (gdw_dev_bytes_rcv != 0)
+            {
+                n_rc = dev_rx_proc();
+            }
+
         }
         else
         {
@@ -1022,7 +1140,7 @@ int main_loop_wait (void)
 int wmain(int argc, WCHAR *argv[])
 {
 
-    if (!io_pipe_init(argc, argv[1]))
+    if (!io_pipe_init())
         return FALSE;
 
     gha_events[HANDLE_DEV_RX] = CreateEvent(
@@ -1066,7 +1184,7 @@ int wmain(int argc, WCHAR *argv[])
 
     wprintf(L"                                     \n");
     wprintf(L" ------------------------------------\n");
-    wprintf(L" ---      CSR IO proccesor      ---\n");
+    wprintf(L" ---      DBG IO proccesor        ---\n");
     wprintf(L" ------------------------------------\n");
     wprintf(L"                                     \n");
     while (gt_flags.exit != FL_SET)
@@ -1106,3 +1224,21 @@ int wmain(int argc, WCHAR *argv[])
 
 }
 
+#if 0
+int send_single_command(int argc, WCHAR *argv[], int n_arg_num){
+
+    WCHAR    ca_cmd_line[CMD_LINE_LENGTH];
+    WCHAR    *pc_cmd;
+
+    pc_cmd = ca_cmd_line;
+    pc_cmd[0] = 0;
+
+    // combine all remaining command line tokens to one string
+    while(n_arg_num < argc ){
+        wcsncat_s(pc_cmd, wcs_sizeof(ca_cmd_line), argv[n_arg_num], wcs_sizeof(ca_cmd_line));
+        n_arg_num ++;    
+    }
+
+    return proceed_cmd(pc_cmd);
+}
+#endif
