@@ -44,8 +44,9 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\..\cmd_line_wc;..\..\ftdi_d2xx\CDM v2.10.00 WHQL Certified;..\btcar-dbg-cmd-proc;..\btcar-dbg-io;..\btcar-dbg-cmd-lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\ftdi_d2xx\CDM v2.10.00 WHQL Certified;..\btcar-dbg-io;..\btcar-dbg-cmd-lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <BrowseInformation>true</BrowseInformation>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;%(PreprocessorDefinitions); DEV_FT_TYPE_UART</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
