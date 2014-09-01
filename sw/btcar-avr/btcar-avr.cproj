@@ -37,7 +37,7 @@
         </dependencies>
       </framework-data>
     </AsfFrameworkConfig>
-    <avrtool>com.atmel.avrdbg.tool.simulator</avrtool>
+    <avrtool>com.atmel.avrdbg.tool.jtagicemkii</avrtool>
     <com_atmel_avrdbg_tool_simulator>
       <ToolOptions>
         <InterfaceProperties>
@@ -63,6 +63,7 @@
     <com_atmel_avrdbg_tool_jtagicemkii>
       <ToolOptions>
         <InterfaceProperties>
+          <JtagDbgClock>200000</JtagDbgClock>
         </InterfaceProperties>
         <InterfaceName>JTAG</InterfaceName>
       </ToolOptions>

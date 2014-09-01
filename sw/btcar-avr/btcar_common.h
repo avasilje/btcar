@@ -49,6 +49,25 @@ do                                      \
 } while(0)
 
 
+#define MOVE_IRQ()                       \
+     {                                   \
+         int8_t tmp_mcucr;               \
+         __asm__ __volatile__(           \
+         "in  %0, %1" "\n\t"             \
+         "sbr %0, 1"  "\n\t"             \
+         "out %1, %0" "\n\t"             \
+         "cbr %0, 1"  "\n\t"             \
+         "sbr %0, 2"  "\n\t"             \
+         "out %1, %0" "\n\t"             \
+         : "=d" (tmp_mcucr)              \
+         : "I" (_SFR_IO_ADDR(MCUCR))     \
+         );                              \
+        /* Hello from paranoia */        \
+        if ((MCUCR & (1<<IVSEL)) == 0)   \
+            FATAL_TRAP();                \
+                                         \
+     }
+
 extern void _fatal_trap(uint16_t us_line_num);
 #define FATAL_TRAP() _fatal_trap(__LINE__)
 

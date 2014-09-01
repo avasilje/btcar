@@ -11,12 +11,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{AA9EEA04-AADD-4FE0-964C-6BA6E1D9629C}</ProjectGuid>
-    <RootNamespace>btcardbgcmdlib</RootNamespace>
+    <ProjectGuid>{67E0A164-82F3-4A9F-8E1C-478EA5578E9E}</ProjectGuid>
+    <RootNamespace>btcardbgioproc</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
     <PlatformToolset>v120</PlatformToolset>
@@ -26,7 +26,7 @@
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v120</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>MultiByte</CharacterSet>
+    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -44,11 +44,14 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\..\cmd_line_wc;..\..\ftdi_d2xx\CDM v2.10.00 WHQL Certified;..\btcar-dbg-cmd-proc;..\btcar-dbg-io;..\btcar-dbg-cmd-lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <BrowseInformation>true</BrowseInformation>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;%(PreprocessorDefinitions); DEV_FT_TYPE_FIFO</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(TargetDir);..\..\ftdi_d2xx\CDM v2.10.00 WHQL Certified\i386</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ftd2xx.lib;btcar-dbg-cmd-lib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Bscmake>
       <PreserveSbr>true</PreserveSbr>
@@ -61,6 +64,8 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>C:\MyWorks\BTCar\sw\btcar-dbg\btcar-dbg-cmd-lib;C:\MyWorks\BTCar\sw\ftdi\CDM v2.10.00 WHQL Certified;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -69,10 +74,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="cmd_lib.cpp" />
+    <ClCompile Include="..\btcar-dbg-io\dbg-io.cpp" />
+    <ClCompile Include="io_avrb_ui_cmd.cpp" />
+    <ClCompile Include="io_avrb_dev_cmd.cpp" />
+    <ClCompile Include="io_avrb_dev_resp.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="cmd_lib.h" />
+    <ClInclude Include="..\btcar-dbg-io\dbg-io.h" />
+    <ClInclude Include="..\btcar-dbg-io\dbg-io_int.h" />
+    <ClInclude Include="io_avrb_dev_cmd.h" />
+    <ClInclude Include="io_avrb_dev_resp.h" />
+    <ClInclude Include="io_avrb_ui_cmd.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -170,19 +170,8 @@ int real_main()
 
     uint8_t uc_i;
 
-    // --------------------------------------------------
-    // --- Protect bootloader from internal update 
-    // --- Protect chip
-    // --------------------------------------------------
-    // set locks bit for Boot Loader Section
-    // Prohibit read from BLS, 
-    // Prohibit to change BLS from Application section
-
-//    boot_lock_bits_set( (1<<BLB12) | (1<<BLB11) |  (1<<LB1) | (1<<LB2));
-
     // Move Interrupt vectors to BootLoader
-    MCUCR = (1<<IVCE);
-    MCUCR = (1<<IVSEL);
+    MOVE_IRQ();
 
     // --------------------------------------------------
     // --- Init perepherial devices
@@ -368,7 +357,8 @@ ISR(TIMER3_OVF_vect) {
     FIFO_DATA_DIR = 0x00;   // Input
 
     // Get data from FIFO if present 
-    if (bit_is_clear(FIFO_CNTR_PIN, FIFO_CNTR_RXF) ){
+    if (bit_is_clear(FIFO_CNTR_PIN, FIFO_CNTR_RXF))
+    {
 
         // RD active 
         FIFO_CNTR_PORT &= ~(1<<FIFO_CNTR_RD);
