@@ -6,6 +6,7 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <string.h>
+#include "servos.h"
 #include "actions.h"
 
 //------ Global variables in Program Memory ---------------------
@@ -60,6 +61,38 @@ uint8_t action_leds_on(){
 
     return 0;
 }
+
+__attribute__ ((section (".actions")))
+uint8_t action_servo_ch()
+{
+
+    uint8_t   uc_data;
+    uint8_t   uc_ch;
+    uint8_t   uc_len;
+
+    // 0x20  0x02 0xDD  0xDD
+    // CMD   Len  Ch    Val 
+    // Val -> pulse width
+    //   0 -> 1ms 
+    // 255 -> 2ms
+
+
+    FIFO_RD(&uc_len);
+
+    FIFO_RD(&uc_ch);
+
+    FIFO_RD(&uc_data);
+
+    if (servo_ch_check_ch(uc_ch)) 
+    {
+        // Error 
+        return 0;
+    }
+
+    servo_ch_set_pw(uc_ch, uc_data);
+    return 0;
+}
+
 
 
 #if 0
@@ -304,9 +337,10 @@ uint8_t action_signature(){
 //
 T_ACTION gta_action_table[64] __attribute__ ((section (".act_const"))) = {
 
-    {"mark", 0x00, (uint8_t (*)())0xFEED          },    // Table signature
-    {"sign", 0x11, action_signature             },    
+    {"mark", 0x00, (uint8_t (*)())0xFEED     },    // Table signature
+    {"sign", 0x11, action_signature          },    
 //    {"pwr ", 0x12, action_power                 },    
-    {"leds", 0x16, action_leds_on               },
-    {"eot ", 0xFF, 0}                               // End of table
+    {"leds", 0x16, action_leds_on            },
+    {"srvc", 0x20, action_servo_ch           },
+    {"eoat", 0xFF, 0}                               // End of table
 };

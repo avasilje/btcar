@@ -58,9 +58,6 @@
  */
 #define MAX_PENDING_KEY_STROKES                 30
 
-/* The debouncing timer to be used for the keys of the keyboard */
-#define DEBOUNCE_TIMER                          40 * MILLISECOND
-
 /*************** HID related customizable things ******************************/
 
 

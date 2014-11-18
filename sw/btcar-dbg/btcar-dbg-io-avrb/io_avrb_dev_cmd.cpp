@@ -141,6 +141,48 @@ void cmd_io_loopback (void)
 
 }
 
+void cmd_io_servo()
+{
+    int n_rc;
+    DWORD dw_byte_to_write;
+
+    #pragma pack(1)
+    struct t_cmd_servo{
+        struct t_cmd_hdr hdr;
+        BYTE   uc_ch;
+        BYTE   uc_val;
+    } t_cmd = { {0x20, 0x02}, 0x00, 0x00 };
+
+    // -----------------------------------------------
+    // --- write data from UI command to DEV command
+    // ------------------------------------------------
+    n_rc = TRUE;
+
+    // Verify command arguments
+    // ...
+
+    t_cmd.uc_ch  = (BYTE)gt_cmd_servo.ch.dw_val;
+    t_cmd.uc_val = (BYTE)gt_cmd_servo.val.dw_val;
+
+    if (!n_rc)
+        goto cmd_io_servo_error;
+    
+    // ----------------------------------------
+    // --- Initiate data transfer to MCU
+    // ----------------------------------------
+    dw_byte_to_write = sizeof(t_cmd.hdr) + t_cmd.hdr.uc_len;
+
+    dev_tx(dw_byte_to_write, (BYTE*)&t_cmd, L"SERVO");
+    return;
+
+cmd_io_servo_error:
+
+    wprintf(L"command error : SERVO\n");
+    return;
+
+}
+
+
 #if  0   // Command template                    
 void cmd_io_???()
 {

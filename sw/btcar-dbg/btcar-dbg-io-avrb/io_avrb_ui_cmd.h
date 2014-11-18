@@ -28,6 +28,14 @@ struct t_cmd_loopback_tag{
 
 extern struct t_cmd_loopback_tag gt_cmd_loopback;
 
+//----------------------------------------------------------
+struct t_cmd_servo_tag{
+    T_UI_CMD_FIELD   ch;
+    T_UI_CMD_FIELD   val;
+    T_UI_CMD_FIELD   eomsg;
+};
+
+extern struct t_cmd_servo_tag gt_cmd_servo;
 
 #if 0
 //----------------------------------------------------------

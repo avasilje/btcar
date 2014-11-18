@@ -499,7 +499,6 @@ static void requestConnParamUpdate(timer_id tid)
 
 static void appInitStateExit(void)
 {
-    StartHardware();
 
     /* Application will start advertising upon exiting btcar_init state. So,
      * update the whitelist.
@@ -1786,167 +1785,6 @@ extern void AppUpdateWhiteList(void)
 
 }
 
-
-/*-----------------------------------------------------------------------------*
- *  NAME
- *      ProcessReport
- *
- *  DESCRIPTION
- *      This function processes the raw reports received from PIO controller
- *
- *  RETURNS
- *      Nothing.
- *
- *----------------------------------------------------------------------------*/
- 
-extern void ProcessReport(uint8* raw_report)
-{
-    if(g_btcar_data.state == btcar_passkey_input)
-    {
-        /* Normally while entering a passkey, the user will enter one
-         * key after another. So, it is safe to assume that only one key
-         * will be pressed at a time. When only one key is pressed, its
-         * value will be the third byte of the report which is the first
-         * data byte.
-         */
-        uint8 key_pressed = raw_report[2];
-
-        if(key_pressed)
-        {
-            if((key_pressed > USAGE_ID_KEY_Z) && 
-                                 (key_pressed < USAGE_ID_KEY_ENTER))
-            {
-                /* Each time a new key press is detected during passkey
-                 * entry, the passkey value needs to be updated. The
-                 * earlier entered digit is multiplied by 10 and the
-                 * new key is added.
-                 */
-
-                g_btcar_data.pass_key = g_btcar_data.pass_key * 10 + 
-                                     (key_pressed - USAGE_ID_KEY_Z)%10;
-            }
-            else if(key_pressed == USAGE_ID_KEY_ENTER)
-            {
-                /* Passkey will be non-zero if any number keys are 
-                 * pressed. Send the passkey response if the passkey
-                 * is non-zero. Otherwise, send a negative passkey
-                 * response(When enter is pressed without pressing
-                 * any key or only alphabetic keys are pressed
-                 * followed by enter key press).
-                 */
-
-                /* AV: Set breakpoint here */
-                if(g_btcar_data.pass_key)
-                {
-                    SMPasskeyInput(&g_btcar_data.con_bd_addr, 
-                                                 &g_btcar_data.pass_key);
-                }
-                else
-                {
-                    SMPasskeyInputNeg(&g_btcar_data.con_bd_addr);
-                }
-                
-                /* Now that the passkey is sent, change the application
-                 * state back to 'connected'
-                 */
-                appSetState(btcar_connected);
-            }
-        }
-    }
-
-    else
-    {
-#if 0        
-        if(FormulateReportsFromRaw(raw_report))
-        {
-        
-            if(g_btcar_data.state == btcar_connected && 
-                                             g_btcar_data.encrypt_enabled)
-            {
-                /* If the data transmission is not already in progress,
-                 * then send the stored keys from queue
-                 */                  
-                if(AppCheckNotificationStatus()&&
-                   !g_btcar_data.data_tx_in_progress &&
-                   !g_btcar_data.waiting_for_fw_buffer)
-                {
-                    SendKeyStrokesFromQueue();
-                }
-            }
-             /* If the keyboard is slow advertising, start fast
-             * advertisements
-             */
-            else if(g_btcar_data.state == btcar_slow_advertising)
-            {
-                g_btcar_data.start_adverts = TRUE;
-
-                /* Delete the advertisement timer */
-                TimerDelete(g_btcar_data.app_tid);
-                g_btcar_data.app_tid = TIMER_INVALID;
-                g_btcar_data.advert_timer_value = TIMER_INVALID;
-
-                GattStopAdverts();
-            }
-
-            /* If the keyboard is already fast advertising, we need 
-             * not do anything. If the keyboard state is btcar_init,
-             * it will start advertising. If the keyboard is in
-             * btcar_disconnecting state, it will start advertising
-             * after disconnection is complete and it finds that
-             * data is pending in the queue.
-             */
-            else if(g_btcar_data.state == btcar_idle)
-            {
-                appStartAdvert();
-            }
-        }
-#endif /* 0 */        
-    }
-}
-
-
-/*-----------------------------------------------------------------------------*
- *  NAME
- *      AddKeyStrokeToQueue
- *
- *  DESCRIPTION
- *      This function is used to add key strokes to circular queue maintained 
- *      by application. The key strokes will get notified to Host machine once
- *      notifications are enabled by the remote client.
- *
- *  RETURNS/MODIFIES
- *      Nothing.
- *
- *----------------------------------------------------------------------------*/
-
-extern void AddKeyStrokeToQueue(uint8 report_id, uint8 *report,
-                                                            uint8 report_length)
-{
-    uint8 *p_temp_input_report = NULL;
-    uint8 add_idx;
-
-    /* Add new key stroke to the end of circular queue. If Max circular queue 
-     * length has reached the oldest key stroke will get overwritten 
-     */
-    add_idx = (g_btcar_data.pending_key_strokes.start_idx + 
-    g_btcar_data.pending_key_strokes.num)% MAX_PENDING_KEY_STROKES;
-
-    SET_CQUEUE_INPUT_REPORT_ID(add_idx, report_id);
-
-    p_temp_input_report = GET_CQUEUE_INPUT_REPORT_REF(add_idx);
-
-    MemCopy(p_temp_input_report, report, report_length);
-
-    if(g_btcar_data.pending_key_strokes.num < MAX_PENDING_KEY_STROKES)
-        ++ g_btcar_data.pending_key_strokes.num;
-    else /* Oldest key stroke overwritten, move the index */
-        g_btcar_data.pending_key_strokes.start_idx = (add_idx + 1) 
-                                                  % MAX_PENDING_KEY_STROKES;
-
-    g_btcar_data.data_pending = TRUE;
-}
-
-
 /*-----------------------------------------------------------------------------*
  *  NAME
  *      HandlePairingButtonPress
@@ -2223,16 +2061,7 @@ void AppProcessSystemEvent(sys_event_id id, void *data)
     
     switch(id)
     {
-    case sys_event_pio_ctrlr: /* if the event is from the PIO controller. */
-    {
-#if 0
-        /* Process new report */
-        ProcessReport(raw_report);
-#endif 
-
-    }
-    break;
-    
+   
     case sys_event_pio_changed:
     {
         HandlePIOChangedEvent(((pio_changed_data*)data)->pio_cause);
@@ -2386,26 +2215,4 @@ bool AppProcessLmEvent(lm_event_code event_code, LM_EVENT_T *event_data)
     }
 
     return TRUE;
-}
-
-
-void av_add_str_to_queue (void) {
-
-    uint8 str[] = "Hello!";
-    uint8 *p_str;
-    uint8 char_to_send, char_to_report;
-
-    p_str = str;
-    char_to_send = sizeof(str);
-    while(char_to_send) {
-        char_to_report = (char_to_send < ATTR_LEN_HID_INPUT_REPORT) ? 
-                            char_to_send : ATTR_LEN_HID_INPUT_REPORT;
-
-        AddKeyStrokeToQueue(HID_INPUT_REPORT_ID, p_str, char_to_report);
-
-        p_str += char_to_report;
-        char_to_send -= char_to_report;
-    }
-
-    return;
 }

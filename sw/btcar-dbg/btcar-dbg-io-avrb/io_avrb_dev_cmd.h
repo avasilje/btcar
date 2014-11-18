@@ -5,6 +5,7 @@
 void cmd_io_sign(void);
 void cmd_io_mled(void);
 void cmd_io_loopback(void);
+void cmd_io_servo(void);
 
 #endif
 

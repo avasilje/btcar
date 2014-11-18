@@ -257,13 +257,5 @@ extern void SendKeyStrokesFromQueue(void);
 /* This function checks the notification status of HID service */
 extern bool AppCheckNotificationStatus(void);
 
-/* This function processes the raw reports received from PIO controller */
-extern void ProcessReport(uint8* raw_report);
-
-/* This function adds new reports to the application queue */
-extern void AddKeyStrokeToQueue(uint8 report_id, uint8 *report,
-                                uint8 report_length);
-
-extern void av_add_str_to_queue(void);
 
 #endif /* __BTCAR_H__ */

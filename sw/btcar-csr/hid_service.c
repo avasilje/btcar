@@ -29,6 +29,7 @@
 #include "app_gatt_db.h"
 #include "btcar_hw.h"
 #include "user_config.h"
+#include "uart.h"
 
 uint8 sheet_happens = 0;
 
@@ -137,6 +138,32 @@ static void handleOutputReport(GATT_ACCESS_IND_T *ind)
                ATTR_LEN_HID_OUTPUT_REPORT);
 
     set_pwm_cfg(0);
+
+
+    {
+#define TX_DATA_LEN        3
+        bool rc;
+        uint8 tx_data[TX_DATA_LEN];
+
+        if (hid_data.output_report[0] == 0x17)
+        {
+            tx_data[0] = 0x17;  // Servo stream
+            tx_data[1] = hid_data.output_report[1];
+            tx_data[2] = hid_data.output_report[2];
+        
+            rc = UartWrite(&tx_data[0], TX_DATA_LEN);
+            
+            if (!rc)
+            {
+                // Preserve last servo control data to send it upon current TX finished
+            }
+       }
+         
+    }
+
+    PioSet(AUX_LED_PIO, aux_led_toggle);
+    aux_led_toggle = 1 - aux_led_toggle;
+    
 }
 
 

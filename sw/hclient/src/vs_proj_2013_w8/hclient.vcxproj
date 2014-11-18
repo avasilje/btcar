@@ -183,7 +183,10 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" />
   </ImportGroup>
   <ItemGroup Label="WrappedTaskItems">
-    <ResourceCompile Include="..\hclient.rc" />
+    <ResourceCompile Include="..\hclient.rc">
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Win8.1 Debug|Win32'">$(CrtSDKReferenceInclude);$(CrtSDKReferenceVersion);$(DefaultPlatformToolset); %(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Win8.1 Debug|Win32'">$(CrtSDKReferenceInclude); $(CrtSDKReferenceVersion);$(DefaultPlatformToolset);</ExcludedFromBuild>
+    </ResourceCompile>
   </ItemGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Win7 Release|x64'">
     <TargetName>hclient</TargetName>
@@ -422,15 +425,16 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8.1 Debug|Win32'">
     <ClCompile>
-      <TreatWarningAsError>true</TreatWarningAsError>
-      <WarningLevel>Level4</WarningLevel>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <WarningLevel>Level3</WarningLevel>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories); ..\..\..\ftdi_d2xx\CDM v2.10.00 WHQL Certified</AdditionalIncludeDirectories>
       <ExceptionHandling>
       </ExceptionHandling>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);hid.lib;setupapi.lib;comdlg32.lib;shell32.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);hid.lib;setupapi.lib;comdlg32.lib;shell32.lib; ftd2xx.lib</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>..\..\..\ftdi_d2xx\CDM v2.10.00 WHQL Certified\i386</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -442,6 +446,9 @@
   <ItemGroup>
     <ClCompile Include="..\buffers.c" />
     <ClCompile Include="..\ecdisp.c" />
+    <ClCompile Include="..\fld_ctrl.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Win8.1 Debug|Win32'">false</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="..\hclient.c" />
     <ClCompile Include="..\pnp.c" />
     <ClCompile Include="..\report.c" />
@@ -458,6 +465,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Exclude="@(ClInclude)" Include="*.h;*.hpp;*.hxx;*.hm;*.inl;*.xsd" />
+    <ClInclude Include="..\fld_cntrl.h" />
+    <ClInclude Include="..\resource.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\jst_fld.bmp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

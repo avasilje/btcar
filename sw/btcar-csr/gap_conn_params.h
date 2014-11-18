@@ -58,11 +58,11 @@
  * Bluetooth specification.
  */
 /* Minimum and maximum connection interval in number of frames */
-#define PREFERRED_MAX_CON_INTERVAL            0x000a /* 12.5 ms */
-#define PREFERRED_MIN_CON_INTERVAL            0x000a /* 12.5 ms */
+#define PREFERRED_MAX_CON_INTERVAL            0x0006 /* 12.5 ms */
+#define PREFERRED_MIN_CON_INTERVAL            0x0006 /*  ms */
 
 /* Slave latency in number of connection intervals */
-#define PREFERRED_SLAVE_LATENCY               0x0064 /* 100 conn_intervals. */
+#define PREFERRED_SLAVE_LATENCY               0x0000 /* 0x64 => 100 conn_intervals. */
 
 /* Supervision timeout (ms) = PREFERRED_SUPERVISION_TIMEOUT * 10 ms */
 #define PREFERRED_SUPERVISION_TIMEOUT         0x04e2 /* 12.5 seconds. */

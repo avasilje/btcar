@@ -38,6 +38,13 @@ t_cmd_loopback_tag gt_cmd_loopback = {
     {NULL, CFT_LAST, 0, 0}
 };
 
+//---------------------------------------------------------------------------
+t_cmd_servo_tag gt_cmd_servo = {
+    {L"CH"      ,  CFT_NUM,      0,           0},
+    {L"VAL"     ,  CFT_NUM,      0,           0},
+    {NULL, CFT_LAST, 0, 0}
+};
+
 
 #if 0
 //---------------------------------------------------------------------------
@@ -61,6 +68,7 @@ t_cmd_xxx_wr_tag gt_cmd_xxx_wr = {
 T_UI_CMD gta_io_ui_cmd[] = {
         { L"SIGN",     (T_UI_CMD_FIELD*)&gt_cmd_sign,     (void*)cmd_io_sign     },
         { L"MLED",     (T_UI_CMD_FIELD*)&gt_cmd_mcu_led,  (void*)cmd_io_mled     },
+        { L"SERVO",    (T_UI_CMD_FIELD*)&gt_cmd_servo,    (void*)cmd_io_servo    },
         { L"LOOPBACK", (T_UI_CMD_FIELD*)&gt_cmd_loopback, (void*)cmd_io_loopback },
         { 0, 0 }
 };

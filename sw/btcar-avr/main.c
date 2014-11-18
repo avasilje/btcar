@@ -30,11 +30,21 @@
 
 #include "btcar_common.h"
 #include "dbg_log.h"
+#include "servos.h"
 #include "actions.h"
 
 // Global interrupt disabling reference counter
 // Stores number of times of ISR disabling. 0 -> ISR Enabled
 uint8_t guc_global_isr_dis_cnt;
+
+// BT IF related data
+#define BT_IF_STREAM_SERVO  0x17
+int8_t  gc_bt_if_curr_stream;
+int8_t  guc_bt_if_curr_idx;
+
+//      BT IF SERVO related data
+#define BT_IF_SERVO_DATA_LEN    2
+uint8_t guca_bt_if_servo_data[BT_IF_SERVO_DATA_LEN];
 
 extern void unit_tests_main();
 
@@ -95,10 +105,13 @@ DBG_BUFF_t *gpt_dbg_log_buff;
 void _fatal_trap(uint16_t us_line_num)
 {
 
+    GLOBAL_IRQ_DIS();
     gus_trap_line = us_line_num;
 
     // clear all hazards on external pins
     // ...
+
+    disable_servos();
 
     while(1);
 
@@ -156,6 +169,45 @@ void init_hw_fifo(void)
 
 }
 
+void init_bt_uart (void)
+{
+
+#define PINRXD2 PINH0
+#define PINTXD2 PINH1
+
+    // TX - output 0
+    // RX - Pull-up 
+    // RXD2 => PH0
+    // TXD2 => PH1
+
+    DDRH  &= ~((1<<PINRXD2) | (1<<PINTXD2));
+    PORTH &= ~((1<<PINRXD2) | (1<<PINTXD2));
+
+    DDRH  |= ((0<<PINRXD2) |
+              (1<<PINTXD2));
+
+    PORTH |= ((1<<PINRXD2) |
+              (0<<PINTXD2));
+
+    UBRR2 = 25;             // 25,0 ==> 38400
+    UCSR2A &= ~(1<<U2X2);
+
+    // Set frame format: 8data, 1stop bit */
+    UCSR2C =
+        (0<<UPM20) |      // No parity
+        (0<<USBS2) |      // 1 stop bit
+        (3<<UCSZ20);      // 8 data bits
+
+    // Enable receiver and transmitter
+    UCSR2B =
+        (1<<RXCIE2)|     // RX Interrupt enable
+        (0<<TXCIE2)|     // TX Interrupt disable
+        (1<<RXEN2) |     // Receiver enabled
+        (1<<TXEN2);      // Transmitter enabled
+
+    gc_bt_if_curr_stream = 0;
+}
+
 void init_hw_io(void)
 {
     // Init LED control pins (all OFF)
@@ -181,7 +233,11 @@ int real_main()
     init_hw_fifo();
 
     init_hw_io();
-                
+
+    init_servos();
+
+    init_bt_uart();
+
     leds_control(0xFF);
 
     dbg_buffer_init();
@@ -478,3 +534,56 @@ int main()
 
 }
 
+// TODO: move servo related part to servo.c
+ISR(USART2_RX_vect) {
+
+    uint8_t uc_status;
+    uint8_t uc_data;
+
+    // get RX status, trap if something wrong
+    uc_status = UCSR2A;
+    uc_data = UDR2;
+
+    // Check Frame Error (FE2) and DATA overflow (DOR2)
+    if ( uc_status & (_BV(FE2) | _BV(DOR2)) )
+        FATAL_TRAP();
+
+    if (gc_bt_if_curr_stream)
+    {
+        // Continue currently active stream
+        // Servo stream processed with highest priority
+        if (gc_bt_if_curr_stream == BT_IF_STREAM_SERVO)
+        {
+            guca_bt_if_servo_data[guc_bt_if_curr_idx] = uc_data;
+            guc_bt_if_curr_idx++;
+            if (guc_bt_if_curr_idx == BT_IF_SERVO_DATA_LEN)
+            {
+                // SERVO data completed. Update servo channels
+                servo_ch_set_pw(0, guca_bt_if_servo_data[0]);
+                servo_ch_set_pw(1, guca_bt_if_servo_data[1]);
+                gc_bt_if_curr_stream = 0;
+            }
+        }
+        else
+        {
+            FATAL_TRAP();
+        }
+    }
+    else
+    {
+        // start new stream
+        if (uc_data == BT_IF_STREAM_SERVO)
+        {
+            gc_bt_if_curr_stream = uc_data;
+            guc_bt_if_curr_idx = 0;
+        }
+        else
+        {
+            FATAL_TRAP();
+        }
+
+        return;
+    }
+    
+    return;    
+}

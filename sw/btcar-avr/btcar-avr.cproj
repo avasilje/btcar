@@ -222,6 +222,15 @@
     <Compile Include="main.c">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="servos.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="servos.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <None Include="unit_tests\unit_test_servo.c">
+      <SubType>compile</SubType>
+    </None>
     <None Include="unit_tests\unit_test_dbg_buff.c">
       <SubType>compile</SubType>
     </None>

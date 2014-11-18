@@ -27,6 +27,7 @@
 
 #include <sleep.h>
 #include <mem.h>
+#include <uart.h>
 
 /*=============================================================================*
  *  Private Definitions
@@ -46,66 +47,40 @@
 /* De-bouncing timer for the pairing removal button */
 #define PAIRING_BUTTON_DEBOUNCE_TIME      (100 * MILLISECOND)
 
-/* De-bouncing timer for AV button */
-#define AV_BUTTON_DEBOUNCE_TIME           (100 * MILLISECOND)
-
 /* The time for which the pairing removal button needs to be pressed
  * to remove pairing
  */
 #define PAIRING_REMOVAL_TIMEOUT           (1 * SECOND)
 
-/* De-bouncing time for key press */
-#define KEY_PRESS_DEBOUNCE_TIME           (25 * MILLISECOND)
 
-/* Key press states */
-#define IDLE                              (0)
-#define PRESSING                          (1)
-#define DOWN                              (2)
-#define RELEASING                         (3)
-
-/* Number of scan cycles to be spent in the 'PRESSING' state. */
-#define N_SCAN_CYCLES_IN_PRESSING_STATE   (2)
-
-/* Number of scan cycles to be spent in the 'DOWN' state. */
-/* In 'DOWN' state, the 'key release' events are ignored assuming that they are
- * due to bouncing. So, the number of scan cycles for which a key will be in
- * 'DOWN' state should be such that all such events are lost by the time the
- * key exits out of 'DOWN' state.
- *
- * NOTE: If this value is changed to suit a different hardware(keyboard),
- * then 'KEY_PRESS_DEBOUNCE_TIME' value should also be increased/decreased
- * by the same time. For example, if this macro is increased to 4, then,
- * 'KEY_PRESS_DEBOUNCE_TIME' which is now 25 ms should be changed to 30 ms
- * (increased by 5 ms which is the time duration of one scan cycle).
+/* 
+ * Uart specific definitions
  */
-#define N_SCAN_CYCLES_IN_DOWN_STATE       (3)
+
+  /* The application is required to create two buffers, one for receive, the
+  * other for transmit. The buffers need to meet the alignment requirements
+  * of the hardware. See the macro definition in uart.h for more details.
+  */
+
+/* Create 64-byte receive buffer for UART data */
+UART_DECLARE_BUFFER(rx_buffer, UART_BUF_SIZE_BYTES_128);
+
+/* Create 64-byte transmit buffer for UART data */
+UART_DECLARE_BUFFER(tx_buffer, UART_BUF_SIZE_BYTES_128);
+
+#if 0
+/* UART receive callback to receive serial commands */
+static uint16 uartRxDataCallback(void   *p_rx_buffer,
+                                 uint16  length,
+                                 uint16 *p_req_data_length);
+#endif
+
+/* UART transmit callback when a UART transmission has finished */
+static void uartTxDataCallback(void);
 
 /*=============================================================================*
  *  Private Data Types
  *============================================================================*/
-
-/* Structure which holds the previously generated reports by a key press for all
- * the types of reports used by the keyboard.
- */
-typedef struct
-{
-    /* Last report formed by ProcessKeyPress() from the raw data received from
-     * the PIO controller shared memory.
-     */
-    uint8 last_report[LARGEST_REPORT_SIZE];
-
-     /* Different types of reports formed from the last raw_report */
-    uint8 last_input_report[ATTR_LEN_HID_INPUT_REPORT];
-}LAST_REPORTS_T;
-
-/* Key press debounce structure which holds the key press state and tmaintains 
- * a count for the number of times a key press is seen to detect key bouncing
- */
-typedef struct 
-{
-    uint8 state:8;
-    uint8 count:8;
-} debounce;
 
 typedef struct pwm_config_t
 {
@@ -149,11 +124,8 @@ struct pwm_cfg_set_t
 
 
 /*=============================================================================*
- *  Private Data
+ *  Public Data
  *============================================================================*/
-
-LAST_REPORTS_T last_generated_reports;
-
 
 /* Timer to hold the debouncing timer for the pairing removal button press.
  * The same timer is used to hold the debouncing timer for the pairing
@@ -161,55 +133,16 @@ LAST_REPORTS_T last_generated_reports;
  */
 timer_id pairing_removal_tid;
 
-timer_id av_butt_removal_tid;
-
+uint8 aux_led_toggle;
 
 /*=============================================================================*
  *  Private Function Prototypes
  *============================================================================*/
-
-void pio_ctrlr_code(void);  /* Included externally in PIO controller code.*/
 static void handlePairPioStatusChange(timer_id tid);
-static void handleAVPioStatusChange(timer_id tid);
-
 
 /*=============================================================================*
  *  Private Function Implementations
  *============================================================================*/
-
-
-static void handleAVPioStatusChange(timer_id tid)
-{
-        
-    /* Get the PIOs status to check whether the pairing button is pressed or
-        * released
-        */
-    uint32 pios = PioGets();
-
-    /* Reset the pairing removal timer */
-    av_butt_removal_tid = TIMER_INVALID;
-
-    if(!(pios & AV_BUTTON_PIO_MASK))
-    {
-        set_pwm_cfg(1);
-        
-        {
-            uint8       out[ATTR_LEN_HID_INPUT_REPORT];
-            
-            MemSet(out, 0x77, ATTR_LEN_HID_INPUT_REPORT);
-            
-            GattCharValueNotification(g_btcar_data.st_ucid, 
-                                      HANDLE_HID_INPUT_REPORT, 
-                                      ATTR_LEN_HID_INPUT_REPORT, &out[0]);
-        
-        }
-
-    }
-
-    /* Re-enable events on the pairing button */
-    PioSetEventMask(AV_BUTTON_PIO_MASK, pio_event_mode_both);
-
-}
 
 /*-----------------------------------------------------------------------------*
  *  NAME
@@ -258,33 +191,6 @@ static void handlePairPioStatusChange(timer_id tid)
     } /* Else ignore the function call as it may be due to a race condition */
 }
  
-/*-----------------------------------------------------------------------------*
- *  NAME
- *      handleDebounceKey
- *
- *  DESCRIPTION
- *      This function handles debouncing for each scan code
- *
- *  RETURNS
- *      BOOLEAN - TRUE: Key press detected
- *                FALSE: Key press not detected
- *
- *----------------------------------------------------------------------------*/
-
-
-
-/*-----------------------------------------------------------------------------*
- *  NAME
- *      debounceResetTimer
- *
- *  DESCRIPTION
- *      This function handles expiry of debounce timer
- *
- *  RETURNS
- *      Nothing
- *
- *----------------------------------------------------------------------------*/
-
 /*=============================================================================*
  *  Public Function Implementations
  *============================================================================*/
@@ -305,19 +211,6 @@ static void handlePairPioStatusChange(timer_id tid)
 void InitHardware(void)
 {
 
-    /* AV TODO: Complete reqork required */
-
-    /* Set up the PIO controller. */
-    PioCtrlrInit((uint16*)&pio_ctrlr_code);
-
-    /* Give the PIO controller access to the keyboard PIOs */
-    PioSetModes(PIO_CONTROLLER_BIT_MASK, pio_mode_pio_controller);
-
-    /* Set the pull mode of the PIOs. We need strong pull ups on inputs and
-       outputs because outputs need to be open collector. This allows rows and
-       columns to be shorted together in the key matrix */
-    PioSetPullModes(PIO_CONTROLLER_BIT_MASK, pio_mode_strong_pull_up);
-
     /* Don't wakeup on UART RX line toggling */
     SleepWakeOnUartRX(FALSE);
 
@@ -326,27 +219,29 @@ void InitHardware(void)
     PioSetDir(PAIRING_BUTTON_PIO, PIO_DIRECTION_INPUT);
     PioSetPullModes(PAIRING_BUTTON_PIO_MASK, pio_mode_strong_pull_up);
 
-    /* Setup button on PIO1 */
     PioSetEventMask(PAIRING_BUTTON_PIO_MASK, pio_event_mode_both);
 
 
-    /* set up AV button on PIO0 with a pull up (was UART) */
-    PioSetMode(AV_BUTTON_PIO, pio_mode_user);
-    PioSetDir(AV_BUTTON_PIO, PIO_DIRECTION_INPUT);
-    PioSetPullModes(AV_BUTTON_PIO, pio_mode_strong_pull_up);
+    /* Initialise UART and configure with default baud rate and port
+     * configuration
+     */
+    UartInit(NULL,
+             uartTxDataCallback,
+             rx_buffer, UART_BUF_SIZE_BYTES_64,
+             tx_buffer, UART_BUF_SIZE_BYTES_64,
+             uart_data_unpacked);
 
-    /* Setup button on PIO0 */
-    PioSetEventMask(AV_BUTTON_PIO_MASK, pio_event_mode_both);
+#define UART_RATE_38K4    0x009e    
 
-    
-    /* set up AV button on PIO0 with a pull up (was UART) */
-    PioSetMode(AV_BUTTON_PIO3, pio_mode_user);
-    PioSetDir(AV_BUTTON_PIO3, PIO_DIRECTION_INPUT);
-    PioSetPullModes(AV_BUTTON_PIO3, pio_mode_strong_pull_up);
+    UartConfig(UART_RATE_38K4, 0);
 
-    /* Setup button on PIO0 */
-    PioSetEventMask(PIO_BIT_MASK(AV_BUTTON_PIO3), pio_event_mode_both);
-    
+    /* Enable UART */
+    UartEnable(TRUE);
+
+    PioSetMode(AUX_LED_PIO, pio_mode_user);
+    PioSetDir(AUX_LED_PIO, PIO_DIRECTION_OUTPUT);
+    PioSet(AUX_LED_PIO, FALSE);
+    aux_led_toggle = 0;
 }
 
 /*-----------------------------------------------------------------------------*
@@ -369,7 +264,7 @@ void EnablePairLED(bool enable)
     {
         /* Setup Pair LED - PIO-7 controlled through PWM0.*/
         PioSetMode(PAIR_LED_PIO, pio_mode_pwm0);
-        
+
         /* Configure the PWM0 parameters */
         PioConfigPWM(PAIR_LED_PWM_INDEX, pio_pwm_mode_push_pull,
                      PAIR_LED_DULL_ON_TIME, PAIR_LED_DULL_OFF_TIME,
@@ -403,24 +298,6 @@ void EnablePairLED(bool enable)
 
 /*-----------------------------------------------------------------------------*
  *  NAME
- *      StartHardware  -  start scanning the keyboard's keys
- *
- *  DESCRIPTION
- *      This function is called when a connection has been established and
- *      is used to start the scanning of the keyboard's keys.
- *
- *  RETURNS/MODIFIES
- *      Nothing.
- *
- *----------------------------------------------------------------------------*/
-void StartHardware(void)
-{
-    /* Start running the PIO controller code */
-     /* PioCtrlrStart(); */
-}
-
-/*-----------------------------------------------------------------------------*
- *  NAME
  *      HwDataInit
  *
  *  DESCRIPTION
@@ -433,35 +310,8 @@ void StartHardware(void)
 
 extern void HwDataInit(void)
 {
-    MemSet(last_generated_reports.last_report, 0, LARGEST_REPORT_SIZE);
-    MemSet(last_generated_reports.last_input_report, 0,
-                                                  ATTR_LEN_HID_INPUT_REPORT);
+
 }
-
-/*-----------------------------------------------------------------------------*
- *  NAME
- *      ProcessKeyPress
- *
- *  DESCRIPTION
- *      This function is when the user presses a key on the keyboard and hence 
- *      there is a "sys_event_pio_ctrlr" event that has to be handled by the
- *      application. The function also checks for ghost keys.
- *
- *  RETURNS/MODIFIES
- *      True if there is new data to be sent.
- *
- *----------------------------------------------------------------------------*/
-
-extern bool ProcessKeyPress(uint8 *rows, uint8 *raw_report)
-{
-
-    /* AV TODO: rework/clean up required */
-    bool   report_changed = FALSE;
-    
-    /* Return true if there is a new report generated. */
-    return report_changed;
-}
-
 
 /*----------------------------------------------------------------------------*
  *  NAME
@@ -509,25 +359,7 @@ extern void HandlePIOChangedEvent(uint32 pio_changed)
         }                
     }
 
-    if(pio_changed & AV_BUTTON_PIO_MASK)
-    {
-
-        /* If the pairing button is pressed....*/
-        if(!(pios & AV_BUTTON_PIO_MASK))
-        {
-
-            /* Disable any further events due to change in status of
-             * pairing button PIO. These events are re-enabled once the
-             * debouncing timer expires
-             */
-            PioSetEventMask(AV_BUTTON_PIO_MASK, pio_event_mode_disable);
-
-            av_butt_removal_tid = TimerCreate(AV_BUTTON_DEBOUNCE_TIME,
-                                               TRUE, handleAVPioStatusChange);
-        }
-
-    }
-
+    return;
 }
 
 
@@ -552,4 +384,66 @@ void set_pwm_cfg(uint8 cfg_idx)
     /* Enable the PWM0 */
     PioEnablePWM(PAIR_LED_PWM_INDEX, TRUE);
     
+}
+
+#if 0
+/*----------------------------------------------------------------------------*
+ *  NAME
+ *      uartRxDataCallback
+ *
+ *  DESCRIPTION
+ *      This is an internal callback function (of type uart_data_in_fn) that
+ *      will be called by the UART driver when any data is received over UART.
+ *      See DebugInit in the Firmware Library documentation for details.
+ *
+ * PARAMETERS
+ *      p_rx_buffer [in]   Pointer to the receive buffer (uint8 if 'unpacked'
+ *                         or uint16 if 'packed' depending on the chosen UART
+ *                         data mode - this application uses 'unpacked')
+ *
+ *      length [in]        Number of bytes ('unpacked') or words ('packed')
+ *                         received
+ *
+ *      p_additional_req_data_length [out]
+ *                         Number of additional bytes ('unpacked') or words
+ *                         ('packed') this application wishes to receive
+ *
+ * RETURNS
+ *      The number of bytes ('unpacked') or words ('packed') that have been
+ *      processed out of the available data.
+ *----------------------------------------------------------------------------*/
+static uint16 uartRxDataCallback(void   *p_rx_buffer,
+                                 uint16  length,
+                                 uint16 *p_additional_req_data_length)
+{
+   
+    /* Inform the UART driver that we'd like to receive another byte when it
+     * becomes available
+     */
+    *p_additional_req_data_length = (uint16)1;
+    
+    /* Return the number of bytes that have been processed */
+    return length;
+}
+#endif
+/*----------------------------------------------------------------------------*
+ *  NAME
+ *      uartTxDataCallback
+ *
+ *  DESCRIPTION
+ *      This is an internal callback function (of type uart_data_out_fn) that
+ *      will be called by the UART driver when data transmission over the UART
+ *      is finished. See DebugInit in the Firmware Library documentation for
+ *      details.
+ *
+ * PARAMETERS
+ *      None
+ *
+ * RETURNS
+ *      Nothing
+ *----------------------------------------------------------------------------*/
+static void uartTxDataCallback(void)
+{
+    // send last transaction if overflow was detected
+
 }

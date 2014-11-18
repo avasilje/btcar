@@ -29,6 +29,7 @@ Revision History:
 //****************************************************************************
 
 #include <windows.h>
+#include <windowsx.h>
 #include <stdlib.h>
 #include <wtypes.h>
 #include <math.h>
@@ -45,6 +46,8 @@ Revision History:
 #include "ecdisp.h"
 #include "list.h"
 #include <strsafe.h>
+
+#include "fld_cntrl.h"
 
 #pragma warning(disable:4057) // indirection to slightly different base types
 #pragma warning(disable:4127) // conditional expression in constant //while (1)
@@ -1143,16 +1146,20 @@ bMainDlgProc(
 
     ZeroMemory(&writeDevice, sizeof(writeDevice));
 
+    my_hook (hDlg, message, wParam, lParam);
+
+
     switch (message)
     {
         case WM_INITDIALOG:
+        {
 
             //
             // Initialize the device list.
             //  -- PhysicalDeviceList is for devices that are actually attached
             //     to the HID bus
             //
-            
+
             InitializeList(&PhysicalDeviceList);
             
             //
@@ -1274,11 +1281,10 @@ bMainDlgProc(
                         WM_COMMAND,
                         IDC_DEVICES + (CBN_SELCHANGE<<16),
                         (LPARAM) GetDlgItem(hDlg, IDC_DEVICES));
-
+        }
             break; // end WM_INITDIALOG case
-
         case WM_COMMAND:
-
+        {
             switch(LOWORD(wParam))
             {
                 //
@@ -1287,6 +1293,11 @@ bMainDlgProc(
                 //   with the HID_DEVICE block 
                 //
 
+                case IDC_FLD_CTRL:
+                {
+                    break;                    
+                }
+                    break;
                 case IDC_READ:
                     GET_CURRENT_DEVICE(hDlg, pDevice);
 
@@ -1446,7 +1457,14 @@ bMainDlgProc(
                                          
                             EnableWindow(GetDlgItem(hDlg, IDC_FEATURES),
                                          (pDevice != NULL) && 
-                                         (pDevice -> Caps.FeatureReportByteLength));
+                                         (pDevice->Caps.FeatureReportByteLength));
+
+                            //  Enable FLD_CTRL DEV button if params allows it
+                            EnableWindow(GetDlgItem(hDlg, IDC_FLD_CTRL_DEV), 
+                                         (pDevice != NULL) && 
+                                         (pDevice->Caps.OutputReportByteLength) &&
+                                         (pDevice->Caps.Usage == 0x000B) &&
+                                         (pDevice->Caps.UsagePage == 0xFF01));
                                          
                             PostMessage(hDlg,
                                         WM_COMMAND,
@@ -1655,6 +1673,7 @@ bMainDlgProc(
                     break;
 
             } //end switch wParam//
+        }
             break;
 
         //

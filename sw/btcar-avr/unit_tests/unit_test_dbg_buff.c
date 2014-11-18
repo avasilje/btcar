@@ -39,6 +39,8 @@ extern DBG_BUFF_t gt_cmd_rsp_buff;  /* Private DBG_BUFF data. Visible for UT onl
 uint8_t guc_unit_test_cnt;
 uint8_t guca_test_data_256[DBG_BUFF_LEN];
 
+extern void unit_test_servo_ch(void);
+
 /* 
  * Simulate single message unload from dbg buffer
  */
@@ -375,7 +377,9 @@ void unit_tests_main ()
     /* Check user & ISR write to buffer with overflows */
 //    unit_test_dbg_log();
 
-    unit_test_cmd_resp();
+//    unit_test_cmd_resp();
+
+    unit_test_servo_ch();
 
 }
 
