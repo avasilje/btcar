@@ -6,12 +6,14 @@ Clone header file
 #define SIGN_LEN 40
 
 typedef struct {
+    struct sign_struct {
         uint8_t  uc_ver_maj;
         uint8_t  uc_ver_min;
-        char   ca_signature[SIGN_LEN];
-        void (*pf_led_func)(uint8_t);
-        uint8_t  reserved[128-44];
-}HW_INFO;
+        char     ca_sign[SIGN_LEN];
+    } t_sign;
+    void (*pf_led_func)(uint8_t);
+    uint8_t  reserved[128-44];
+}HW_INFO;   
 
 
 typedef union {
@@ -54,7 +56,7 @@ typedef struct {
     uint8_t   uc_mask;
 }VERIFY_INFO;
 
-typedef struct action_tag{
+typedef struct action_struct {
     char  ca_name[4];
     uint8_t uc_cmd;
     uint8_t (*pf_func)();
@@ -79,48 +81,13 @@ void leds_control(uint8_t uc_leds);
 #define TX_BURST_SIZE   248 // have to fit to 8bit 
 #define TX_FIFO_SIZE    384
 
-#define DISABLE_RX_TIMER    TIMSK3 = 0            // Disable Overflow Interrupt
-#define ENABLE_RX_TIMER     TIMSK3 = (1<<TOIE3);  // Enable Overflow Interrupt
-#define RX_CNT_RELOAD       (0xFFFF - 10)         // Clarify
-
-
-#define RX_CNT_TCCRxB      3    // Prescaler value (3->1/64)
-
-#define FIFO_DATA_PORT  PORTC
-#define FIFO_DATA_DIR   DDRC
-#define FIFO_DATA_PIN   PINC
-    
-#define FIFO_CNTR_PORT  PORTJ
-#define FIFO_CNTR_DIR   DDRJ
-#define FIFO_CNTR_PIN   PINJ
-
-#define FIFO_CNTR_SI    PINJ6
-#define FIFO_CNTR_RXF   PINJ5
-#define FIFO_CNTR_TXE   PINJ4
-#define FIFO_CNTR_WR    PINJ3
-#define FIFO_CNTR_RD    PINJ2
-
-#define FIFO_WR(data)                                   \
-    FIFO_DATA_DIR = 0xFF;                               \
-    while (bit_is_set(FIFO_CNTR_PIN, FIFO_CNTR_TXE));   \
-    FIFO_CNTR_PORT |=  (1<<FIFO_CNTR_WR);               \
-    FIFO_DATA_PORT = data;                              \
-    FIFO_CNTR_PORT &= ~(1<<FIFO_CNTR_WR)
-
-#define FIFO_RD(p_data)                                 \
-    FIFO_DATA_DIR = 0x00;   /* sync delay here */       \
-    while(bit_is_set(FIFO_CNTR_PIN, FIFO_CNTR_RXF) );   \
-    FIFO_CNTR_PORT &= ~(1<<FIFO_CNTR_RD);               \
-    __asm__ __volatile__ ("nop" ::);                    \
-    *p_data = FIFO_DATA_PIN;                            \
-    FIFO_CNTR_PORT |=  (1<<FIFO_CNTR_RD)
-
-
-
 #define LED_PORT  PORTG
 #define LED_DIR   DDRG
 #define LED_PIN   PING
 
 #define LED_RED        PING1
 #define LED_GREEN    PING3
+
+#define ACT_SIGN     0x11
+#define ACT_SERVO    0x20
 

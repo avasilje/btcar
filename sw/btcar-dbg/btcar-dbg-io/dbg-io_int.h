@@ -36,9 +36,17 @@ typedef struct t_io_ui_tag{
     //   IO <-> UI TX buffer
     //   IO <-> UI RX buffer
 
-    T_UI_CMD        *pt_curr_cmd;
+    T_UI_CMD  *pt_curr_cmd;
 
 }T_IO_UI;
+
+typedef struct t_dev_rx_stream_tag {
+    int   n_stream_idx;
+    DWORD dw_btr;               // Set by command processor function
+    DWORD dw_wr_idx;
+    BYTE  ca_buff[1024];
+    void (*pf_handler)(void);
+} T_DEV_RX_STREAM;
 
 // Interaface to device specific modules
 // AV TODO: Remove the declaration by calling API function
@@ -46,5 +54,8 @@ extern T_UI_CMD gta_io_ui_cmd[];
 extern WCHAR gca_pipe_name[];
 extern WCHAR gca_ui_init_str[];
 extern int dev_response_processing(T_DEV_RSP *pt_rsp, WCHAR *pc_cmd_resp_out, size_t t_max_resp_len);
+
+static void dev_rx_stream_handler_crsp(void);
+static void dev_rx_stream_handler_dbgl(void);
 
 #endif // !__DBG_IO_INT_H__

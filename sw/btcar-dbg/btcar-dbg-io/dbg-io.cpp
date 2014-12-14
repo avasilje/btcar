@@ -21,10 +21,20 @@
 #include <windows.h>
 #include <wchar.h>
 #include <stdio.h>
+#include <stdint.h>
+
 #include "FTD2XX.H"
 #include "cmd_lib.h"
 #include "dbg-io.h"
 #include "dbg-io_int.h"
+
+// ------------------------- TO DO: move to FW sahred header -------------------
+#define DBG_BUFF_IDX_DBGL    0
+#define DBG_BUFF_IDX_CRSP    1
+#define DBG_BUFF_IDX_LAST    2
+#define DBG_BUFF_CNT         DBG_BUFF_IDX_LAST
+
+#define DEV_RX_STREAM_HDR_SIZE     1 
 
 // ------------------------- GLOBAL VAR & DEFs --------------------------------
 T_IO_FLAGS gt_flags;
@@ -32,6 +42,43 @@ HANDLE gha_events[HANDLES_NUM];
 
 HANDLE gh_dump_file;
 HANDLE gh_meas_log_file;
+
+// TODO: move to shared area
+#pragma pack(push, 1)
+typedef struct T_DBGL_HDR_tag {
+    uint8_t     uc_mark;
+    uint8_t     uc_size;
+    uint8_t     uc_fid;
+    uint16_t    us_line;
+} T_DBGL_HDR;
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+typedef struct T_CRSP_HDR_tag {
+    uint8_t     uc_mark;
+    uint8_t     uc_size;
+    uint8_t     uc_act;
+} T_CRSP_HDR;
+#pragma pack(pop)
+
+#define CMD_RESP_HEADER_SIZE    3
+#define DBG_LOG_HEADER_SIZE     2
+
+T_DEV_RX_STREAM gt_stream_dbgl = {
+    DBG_BUFF_IDX_DBGL,
+    DBG_LOG_HEADER_SIZE,  
+    0,
+    {0xCC},
+    dev_rx_stream_handler_dbgl
+}; // Debug log
+
+T_DEV_RX_STREAM gt_stream_crsp = {
+    DBG_BUFF_IDX_CRSP,
+    CMD_RESP_HEADER_SIZE,  // Command Response header
+    0,
+    {0xCC},
+    dev_rx_stream_handler_crsp
+}; // Command Response
 
 
 // ---------------------------- IO PIPE ---------------------------------------
@@ -54,7 +101,6 @@ OVERLAPPED gt_dev_rx_overlapped = { 0 };
 OVERLAPPED gt_dev_tx_overlapped = { 0 };
 
 DWORD gdw_dev_bytes_rcv;
-BYTE guca_dev_resp[1024];
 
 int gn_dev_index = 0;
 int gn_dev_resp_timeout;
@@ -62,6 +108,17 @@ int gn_dev_resp_timeout;
 #define RESP_STR_LEN 1024
 WCHAR gca_dev_resp_str[RESP_STR_LEN];
 
+typedef struct T_DEV_RX_tag {
+    BYTE                uca_dev_rx_buff[1024];
+    T_DEV_RX_STREAM     *pt_curr_stream;
+    DWORD               dw_stream_len;
+} T_DEV_RX;
+
+T_DEV_RX  gt_dev_rx = {
+    {0},
+    NULL,
+    0
+};
 
 // ---------------------------- UI --------------------------------------------
 
@@ -236,7 +293,6 @@ int io_ui_cmd_proc (void)
         wprintf(L"UI --> IO : %s\n", gca_io_pipe_rx_buff);
 
         // Lookup & execute command functor
-        // TODO: replace for registered functions lookup
         if (pt_ui_cmd->ctx)
         {
             F_DEV_CMD *pf_dev_cmd = (F_DEV_CMD*)pt_ui_cmd->ctx;
@@ -320,7 +376,7 @@ int io_pipe_rx_proc (void)
     // Get Overlapped result
     n_rc = GetOverlappedResult(
         gh_io_pipe,             //  __in   HANDLE hFile,
-        &gt_io_pipe_rx_overlap,      //  __in   LPOVERLAPPED lpOverlapped,
+        &gt_io_pipe_rx_overlap, //  __in   LPOVERLAPPED lpOverlapped,
         &dw_bytes_transf,       //  __out  LPDWORD lpNumberOfBytesTransferred,
         FALSE                   //  __in   BOOL bWait
         );
@@ -738,6 +794,51 @@ int dev_open_fifo (int n_dev_indx, FT_HANDLE *ph_device)
 
     FT_Purge(*ph_device, FT_PURGE_TX | FT_PURGE_RX);
 
+#if 0
+    {
+        FT_STATUS n_rc;
+        DWORD dwAmountInRxQueue;
+        DWORD dwAmountInTxQueue;
+        DWORD dwEventStatus;
+        DWORD dw_bytes_rcv;
+
+      
+        while (1)
+        {
+            n_rc = FT_GetStatus (*ph_device, &dwAmountInRxQueue, &dwAmountInTxQueue, &dwEventStatus);
+            if (FT_OK != n_rc)
+            {
+                wprintf(L"asdad");
+            }
+
+            if (dwAmountInRxQueue == 0)
+            {
+                return TRUE;
+            }
+
+            BYTE uca_tmp[100];
+
+            n_rc = FT_W32_ReadFile(
+                *ph_device,
+                uca_tmp, 
+                sizeof(uca_tmp),
+                &gdw_dev_bytes_rcv, 
+                &gt_dev_rx_overlapped);
+
+
+            dw_bytes_rcv = 0;
+            n_rc = FT_W32_GetOverlappedResult(
+                gh_dev,         
+                &gt_dev_rx_overlapped,
+                &dw_bytes_rcv,
+                TRUE);
+
+            n_rc = FT_GetStatus (*ph_device, &dwAmountInRxQueue, &dwAmountInTxQueue, &dwEventStatus);
+
+        }
+
+    }
+#endif
     return TRUE;
 }
 
@@ -745,6 +846,14 @@ int dev_open (void)
 {
 
     int n_rc;
+
+    gha_events[HANDLE_DEV_RX] = CreateEvent(
+        NULL,  // __in_opt  LPSECURITY_ATTRIBUTES lpEventAttributes,
+        FALSE, // __in      BOOL bManualReset,
+        FALSE, // __in      BOOL bInitialState,
+        NULL   // __in_opt  LPCTSTR lpName
+        );
+    gt_dev_rx_overlapped.hEvent = gha_events[HANDLE_DEV_RX];
 
 #ifdef DEV_FT_TYPE_UART
     // Try to locate and open device on USB bus
@@ -791,14 +900,20 @@ void dev_close (void)
 {
 
     if (gh_dev != INVALID_HANDLE_VALUE)
+    {
         FT_W32_CloseHandle(gh_dev);
+        gh_dev = INVALID_HANDLE_VALUE;
+    }
 
     if (gha_events[HANDLE_DEV_RX] != INVALID_HANDLE_VALUE)
+    {
         CloseHandle(gha_events[HANDLE_DEV_RX]);
+        gha_events[HANDLE_DEV_RX] = INVALID_HANDLE_VALUE;
+    }
 
     return;
 }
-
+#if 0
 int dev_clear_fifos (void)
 {
 
@@ -813,21 +928,36 @@ int dev_clear_fifos (void)
     if (!t_ft_st)
     {
         gt_flags.dev_conn = FL_FALL;
+        SetEvent(gha_events[HANDLE_NOT_IDLE]);
     }
 
     return (t_ft_st == FT_OK);
 }
+#endif
 
-int dev_rx_init (DWORD dw_dev_resp_req_len)
+int dev_rx_init(DWORD dw_dev_resp_req_len, BYTE *pb_dev_rx_buff)
 {
-
     int n_rc, n_gle;
+
+    static DWORD dw_req_len_last;
+    static BYTE  *pb_buff_last;
+
+    if (NULL == pb_dev_rx_buff)
+    {
+        dw_dev_resp_req_len = dw_req_len_last;
+        pb_dev_rx_buff = pb_buff_last;
+    }
+    else
+    {
+        dw_req_len_last = dw_dev_resp_req_len;
+        pb_buff_last = pb_dev_rx_buff;
+    }
 
     gdw_dev_bytes_rcv = 0;
 
     n_rc = FT_W32_ReadFile(
         gh_dev,
-        guca_dev_resp, 
+        pb_dev_rx_buff, 
         dw_dev_resp_req_len,
         &gdw_dev_bytes_rcv, 
         &gt_dev_rx_overlapped);
@@ -845,7 +975,7 @@ int dev_rx_init (DWORD dw_dev_resp_req_len)
 
     return TRUE;
 }
-
+#if 0
 int dev_rx (DWORD dw_len, BYTE *pb_data)
 {
    // Read out payload 
@@ -891,44 +1021,269 @@ int dev_rx (DWORD dw_len, BYTE *pb_data)
 
     return TRUE;
 }
+#endif
 
-int dev_rx_proc (void)
+int dev_rx_proc (DWORD dw_bytes_rcv)
 {
-    int     n_rc;
+    BYTE    *pb_stream_buff;
+    DWORD   dw_stream_btr, dw_stream_len;
+    T_DEV_RX_STREAM *pt_stream;
+
+    // Is new stream started
+    if (gt_dev_rx.pt_curr_stream == NULL)
+    {   
+        if (gdw_dev_bytes_rcv != DEV_RX_STREAM_HDR_SIZE)
+        {
+            wprintf(L"Garbage received\n");
+            gt_flags.dev_conn = FL_FALL;
+            SetEvent(gha_events[HANDLE_NOT_IDLE]);
+            return TRUE;
+        }
+         // Get stream ID 
+         int n_stream_id;
+
+         n_stream_id  = gt_dev_rx.uca_dev_rx_buff[0] >> 6;
+         gt_dev_rx.dw_stream_len = gt_dev_rx.uca_dev_rx_buff[0] & ((1 << 6) -1);
+
+        // Copy data to stream specific buffer
+        // and execute corresponding handler
+         switch (n_stream_id)
+         {
+            case DBG_BUFF_IDX_DBGL:
+                gt_dev_rx.pt_curr_stream = &gt_stream_dbgl;
+                break;
+            case DBG_BUFF_IDX_CRSP:
+                gt_dev_rx.pt_curr_stream = &gt_stream_crsp;
+                break;
+            default:
+                // Start broken stream handling
+                wprintf(L"Garbage received 2\n");
+                gt_flags.dev_conn = FL_FALL;
+                SetEvent(gha_events[HANDLE_NOT_IDLE]);
+                return TRUE;
+        }
+
+    }
+    // Data received for already started stream
+    else 
+    {
+        if (gt_dev_rx.dw_stream_len < dw_bytes_rcv)
+        {
+            wprintf(L"Garbage received 3\n");
+            gt_flags.dev_conn = FL_FALL;
+            SetEvent(gha_events[HANDLE_NOT_IDLE]);
+            return TRUE;
+        }
+
+        pt_stream = gt_dev_rx.pt_curr_stream;
+        gt_dev_rx.dw_stream_len -= dw_bytes_rcv;
+        pt_stream->dw_wr_idx += dw_bytes_rcv;
+
+        // Call stream handler if number of requested bytes received
+        if (pt_stream->dw_btr == pt_stream->dw_wr_idx)
+        {
+            pt_stream->pf_handler();
+        }
+    }
+
+    dw_stream_len = gt_dev_rx.dw_stream_len;
+    pt_stream    = gt_dev_rx.pt_curr_stream;
+
+    // Continue read from stream if not finished
+    if (dw_stream_len)
+    {
+        pb_stream_buff = &pt_stream->ca_buff[pt_stream->dw_wr_idx];
+
+        // Limit btr to number specified by command processor
+        dw_stream_btr = dw_stream_len;
+        if (dw_stream_len > pt_stream->dw_btr)
+        {
+            dw_stream_btr = pt_stream->dw_btr;
+        }
+        pb_stream_buff = &pt_stream->ca_buff[pt_stream->dw_wr_idx];
+        
+    }
+    // Initiate new stream
+    else
+    {
+        gt_dev_rx.pt_curr_stream = NULL;
+        gt_dev_rx.dw_stream_len = 0;
+        pb_stream_buff = gt_dev_rx.uca_dev_rx_buff;
+        dw_stream_btr = DEV_RX_STREAM_HDR_SIZE;
+    }
+
+    dev_rx_init(dw_stream_btr, pb_stream_buff);
+    return TRUE;
+
+}
+
+WCHAR *fid2fname(BYTE uc_fid)
+{
+#define DBGL_OUT_FID_LEN    512
+
+    static WCHAR wc_out_str[DBGL_OUT_FID_LEN] = L"";
+
+    // Check is FID table valid
+    // ...
+
+    swprintf(wc_out_str, DBGL_OUT_FID_LEN-1, L"FID(%d)", uc_fid);
+
+    return wc_out_str;
+
+}
+
+
+WCHAR *dbgl2str(T_DBGL_HDR *pt_hdr)
+{
+#define DBGL_OUT_STR_LEN    512
+
+    static WCHAR wc_out_str[DBGL_OUT_STR_LEN] = L"";
+
+    const char *pc_log_str;
+    size_t n_chars;
+
+    pc_log_str = ((const char*)pt_hdr) + sizeof(T_DBGL_HDR);
+
+    // Convert signature to Multibyte string
+    mbstowcs_s( 
+            &n_chars,
+            wc_out_str,
+            DBGL_OUT_STR_LEN-1,
+            pc_log_str,   
+            pt_hdr->uc_size - sizeof(T_DBGL_HDR));
+
+    return wc_out_str;
+}
+
+void dev_rx_stream_handler_dbgl (void)
+{
+
+    T_DBGL_HDR *pt_dbgl_hdr;
+    T_DEV_RX_STREAM *pt_stream;
+
+#define DBG_BUFF_MARK_SIZE      2
+#define DBG_BUFF_MARK_OVFL      0xDD
+#define DBG_BUFF_MARK_RSP       0xD2
+#define DBG_BUFF_MARK_LOG       0xD5
+#define DBG_BUFF_MARK_LOG_ISR   0xD9
+
+
+    pt_stream = &gt_stream_dbgl;
+    pt_dbgl_hdr = (T_DBGL_HDR *)pt_stream->ca_buff;
+
+     // Check is header received
+    if (pt_stream->dw_wr_idx == DBG_LOG_HEADER_SIZE)
+    {
+        // Check msg mark
+        switch (pt_dbgl_hdr->uc_mark)
+        {
+            case DBG_BUFF_MARK_OVFL:
+                wprintf(L"Overflow occur %d times", pt_stream->ca_buff[1]);
+                pt_stream->dw_btr = DBG_LOG_HEADER_SIZE;
+                pt_stream->dw_wr_idx = 0;
+                memset(pt_stream->ca_buff, 0xCC, sizeof(pt_stream->ca_buff));
+                return;
+            case DBG_BUFF_MARK_LOG:
+                // Reguest full header    
+                pt_stream->dw_btr = pt_dbgl_hdr->uc_size;
+                break;
+            case DBG_BUFF_MARK_LOG_ISR:
+                // not ready
+                break;
+            default:
+                // Something wrong. Reset pipe
+                break;
+        }
+        return;
+    }
+
+    if (pt_dbgl_hdr->uc_mark == DBG_BUFF_MARK_LOG)
+    {
+        // Full DBGL message received
+        if (pt_stream->dw_wr_idx != pt_dbgl_hdr->uc_size)
+        {
+            // something wrong
+        }
+
+        // Everething is OK here proceed with printout
+        wprintf(L"DBG_LOG: %s(%d):%s\n", 
+            fid2fname(pt_dbgl_hdr->uc_fid),
+            pt_dbgl_hdr->us_line,
+            dbgl2str(pt_dbgl_hdr));
+
+        pt_stream->dw_btr = DBG_LOG_HEADER_SIZE;
+        pt_stream->dw_wr_idx = 0;
+        memset(pt_stream->ca_buff, 0xCC, sizeof(pt_stream->ca_buff));
+    }
+
+    // Something wrong. Reset pipe
+    return;
+}
+
+void dev_rx_stream_handler_crsp (void)
+{
+    int n_rc;
     size_t  t_msg_len;
-    BYTE    *pb_msg_buff = &gba_io_pipe_tx_buff[0];
+    BYTE    *pb_msg_buff;
     T_DEV_RSP t_resp;
 
-    if (gdw_dev_bytes_rcv < 2)
-    { 
-        wprintf(L"Garbage received\n");
-        return FALSE;
+    T_CRSP_HDR *pt_crsp_hdr;
+    T_DEV_RX_STREAM *pt_stream;
+
+    pt_stream = &gt_stream_crsp;
+    pt_crsp_hdr = (T_CRSP_HDR *)pt_stream->ca_buff;
+
+    t_resp.b_cmd = pt_crsp_hdr->uc_act;
+    t_resp.b_len = pt_crsp_hdr->uc_size - sizeof(T_CRSP_HDR);
+    t_resp.pb_data = &pt_stream->ca_buff[0] + sizeof(T_CRSP_HDR);
+
+    if (pt_crsp_hdr->uc_mark != DBG_BUFF_MARK_RSP)
+    {
+        while (1);
     }
 
-    /* Device response header has been received
-     * Readout response payload
-     */
-
-    t_resp.b_cmd = guca_dev_resp[0];
-    t_resp.b_len = guca_dev_resp[1];
-    t_resp.pb_data = &guca_dev_resp[2];
-
-    if (!dev_rx(t_resp.b_len, t_resp.pb_data))
+    // Check is header received
+    if (pt_stream->dw_wr_idx == CMD_RESP_HEADER_SIZE)
     {
-        dev_clear_fifos();
-        return TRUE;
+        // Check is payload present
+        if (pt_crsp_hdr->uc_size != CMD_RESP_HEADER_SIZE)
+        {
+            // Request response reminder
+            pt_stream->dw_btr = pt_crsp_hdr->uc_size;
+            return;
+        }
     }
     
-    // Only responses expected from DEV so far. Process response.
+    // All requested data received 
+    if (pt_stream->dw_wr_idx != pt_crsp_hdr->uc_size)
+    {
+        // something wrong
+        while (1);
+    }
+
+    // Init new command read from stream
+    pt_stream->dw_btr = CMD_RESP_HEADER_SIZE;
+    pt_stream->dw_wr_idx = 0;
+
+    // Everething is OK here proceed with printout
     n_rc = dev_response_processing(&t_resp, gca_dev_resp_str, RESP_STR_LEN);
 
-    // Send response message to UI in human readable format 
-    pb_msg_buff = add_tlv_str(pb_msg_buff, UI_IO_TLV_TYPE_CMD_RSP, gca_dev_resp_str);
+    // If response composed, then send response 
+    // message to UI in human readable format 
+    if (gca_dev_resp_str[0] != L'\0')
+    {
+        pb_msg_buff = &gba_io_pipe_tx_buff[0];
+        pb_msg_buff = add_tlv_str( pb_msg_buff, 
+                                   UI_IO_TLV_TYPE_CMD_RSP, 
+                                   gca_dev_resp_str);
 
-    t_msg_len = terminate_tlv_list(pb_msg_buff);
-    io_pipe_tx_byte(gba_io_pipe_tx_buff, t_msg_len);
+        t_msg_len = terminate_tlv_list(pb_msg_buff);
+        io_pipe_tx_byte(gba_io_pipe_tx_buff, t_msg_len);
+    }
 
-    return TRUE;
+    memset(pt_stream->ca_buff, 0xCC, sizeof(pt_stream->ca_buff));
+
+    return;
 }
 
 void dev_tx (DWORD dw_byte_to_write, BYTE *pc_cmd, const WCHAR *pc_cmd_name)
@@ -1012,20 +1367,19 @@ int dev_check (void)
         wprintf(L"Device connected\n");
         gt_flags.dev_conn = FL_SET;
 
-        dev_rx_init(2);
+        gt_dev_rx.pt_curr_stream = NULL;
+        dev_rx_init(DEV_RX_STREAM_HDR_SIZE, gt_dev_rx.uca_dev_rx_buff);
 
     }
     else if (gt_flags.dev_conn == FL_FALL)
     {
         // DEV CONNECT 1->0
+        dev_close();
 
         // Clear connection flag
         gt_flags.dev_conn = FL_CLR;
 
         wprintf(L"Device disconnected\n");
-
-        // End of Device connection FALL
-
     }
     else if (gt_flags.dev_conn == FL_SET)
     {
@@ -1115,9 +1469,14 @@ int main_loop_wait (void)
         {
             if (gdw_dev_bytes_rcv != 0)
             {
-                n_rc = dev_rx_proc();
+                dev_rx_proc(gdw_dev_bytes_rcv);
             }
-
+            else
+            {
+                // Timeout. Just repeat 
+                wprintf(L"Dev rx timeout\n");
+                dev_rx_init(0, NULL);
+            }
         }
         else
         {
@@ -1125,7 +1484,7 @@ int main_loop_wait (void)
             SetEvent(gha_events[HANDLE_NOT_IDLE]);
         }
 
-        dev_rx_init(2);
+
         return TRUE;
     }
     else if (n_rc == WAIT_OBJECT_0 + HANDLE_NOT_IDLE)
@@ -1142,14 +1501,6 @@ int wmain(int argc, WCHAR *argv[])
 
     if (!io_pipe_init())
         return FALSE;
-
-    gha_events[HANDLE_DEV_RX] = CreateEvent(
-        NULL,  // __in_opt  LPSECURITY_ATTRIBUTES lpEventAttributes,
-        FALSE, // __in      BOOL bManualReset,
-        FALSE, // __in      BOOL bInitialState,
-        NULL   // __in_opt  LPCTSTR lpName
-        );
-    gt_dev_rx_overlapped.hEvent = gha_events[HANDLE_DEV_RX];
 
     gha_events[HANDLE_NOT_IDLE] = CreateEvent(
         NULL,  // __in_opt  LPSECURITY_ATTRIBUTES lpEventAttributes,

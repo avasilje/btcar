@@ -6,6 +6,9 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <string.h>
+#include "btcar_common.h"
+#include "hw_fifo.h"
+#include "dbg_log.h"
 #include "servos.h"
 #include "actions.h"
 
@@ -59,6 +62,8 @@ uint8_t action_leds_on(){
 
     gt_hw_info.pf_led_func(uc_data);
 
+    DBG_LOG("Leds cmd received");
+
     return 0;
 }
 
@@ -75,12 +80,9 @@ uint8_t action_servo_ch()
     // Val -> pulse width
     //   0 -> 1ms 
     // 255 -> 2ms
-
-
+ 
     FIFO_RD(&uc_len);
-
     FIFO_RD(&uc_ch);
-
     FIFO_RD(&uc_data);
 
     if (servo_ch_check_ch(uc_ch)) 
@@ -92,8 +94,6 @@ uint8_t action_servo_ch()
     servo_ch_set_pw(uc_ch, uc_data);
     return 0;
 }
-
-
 
 #if 0
 __attribute__ ((section (".actions"))) 
@@ -273,64 +273,25 @@ uint8_t action_single_write(){
  * to CMD_RESP buffer
  */
 
-uint8_t tmp_action_signature(){
+__attribute__ ((section (".actions"))) 
+uint8_t action_signature(void) {
 
-    uint8_t uc_i;
+    uint8_t uc_rc;
     uint8_t uc_len;
+    static  uint8_t uc_fixed_header[] = {ACT_SIGN};
 
     // Read cmd len (must be 0)
     FIFO_RD(&uc_len);
 
-    // 0x11 0xLL    0xMM    0xMM    0xCC
-    // CMD  Length  Major   Minor   String name
+    // 0x11 0xMM    0xMM    0xCC
+    // CMD  Major   Minor   String name
+
+    uc_rc = ERR_OK;
 
     // Write header
-    FIFO_WR(0x11);
-
-    // Write Length
-    FIFO_WR(SIGN_LEN+2);
-
-    // Write Major Version
-    FIFO_WR(gt_hw_info.uc_ver_maj);
-
-    // Write Minor Version
-    FIFO_WR(gt_hw_info.uc_ver_min);
-
-    for(uc_i = 0; uc_i < SIGN_LEN; uc_i++){
-        FIFO_WR(gt_hw_info.ca_signature[uc_i]);
-    }
-
-    return 0;
-}
-
-__attribute__ ((section (".actions"))) 
-uint8_t action_signature(){
-
-    uint8_t uc_i;
-    uint8_t uc_len;
-
-    // Read cmd len (must be 0)
-    FIFO_RD(&uc_len);
-
-    // 0x11 0xLL    0xMM    0xMM    0xCC
-    // CMD  Length  Major   Minor   String name
-
-    // Write header 
-    FIFO_WR(0x11);
-
-    // Write Length
-    FIFO_WR(SIGN_LEN+2);
-
-    // Write Major Version
-    FIFO_WR(gt_hw_info.uc_ver_maj);
-
-    // Write Minor Version
-    FIFO_WR(gt_hw_info.uc_ver_min);
-
-    for(uc_i = 0; uc_i < SIGN_LEN; uc_i++){
-        FIFO_WR(gt_hw_info.ca_signature[uc_i]);
-    }
-
+    uc_rc |= cmd_resp_wr(&uc_fixed_header[0], sizeof(uc_fixed_header));
+    uc_rc |= cmd_resp_wr((uint8_t*)&gt_hw_info.t_sign, sizeof(struct sign_struct));
+    cmd_resp_wr_commit(uc_rc);
     return 0;
 }
 
@@ -338,9 +299,8 @@ uint8_t action_signature(){
 T_ACTION gta_action_table[64] __attribute__ ((section (".act_const"))) = {
 
     {"mark", 0x00, (uint8_t (*)())0xFEED     },    // Table signature
-    {"sign", 0x11, action_signature          },    
-//    {"pwr ", 0x12, action_power                 },    
+    {"sign", ACT_SIGN, action_signature          },    
     {"leds", 0x16, action_leds_on            },
-    {"srvc", 0x20, action_servo_ch           },
+    {"srvc", ACT_SERVO, action_servo_ch           },
     {"eoat", 0xFF, 0}                               // End of table
 };

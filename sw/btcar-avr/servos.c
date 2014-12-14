@@ -85,10 +85,6 @@ uint16_t servo_ch_set_pw(uint8_t ch, uint8_t pw)
     ocr >>= SERVOS_CH_UP_FCT;               /* compensate upscale   */
     ocr   = SERVOS_CH_TMR_TOP - ocr;        /* get inverse value    */
     
-
-    /* AV: TODO: Check special case ocr == icr 
-                 Is a glitch may appear?
-    */
     servo_ch_p->ocr_val = ocr;
     servo_ch_p->to_cnt = servo_ch_p->cfg.timeout;
 

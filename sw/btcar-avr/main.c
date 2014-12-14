@@ -10,14 +10,6 @@
  *    
  *
  ******************************************************************************/
-//TODO:
-// 1. Rename DBG_BUFF related functions for DBG_LOG and CMD_RSP
-// 2. Write WR to buff function that triggered upon I/O TXE edge
-// 3. Write DBG buff unload function
-// 4. Change responses from write to FIFO to write to BUFF
-// 5. Adapt btcar-dbg application to work with multi buffers
-// 6. Make file structure more convenient
-
 /* Define DBG log signature */
 #include "local_fids.h"
 #define LOCAL_FILE_ID FID_MAIN
@@ -29,6 +21,7 @@
 #include <avr/boot.h> 
 
 #include "btcar_common.h"
+#include "hw_fifo.h"
 #include "dbg_log.h"
 #include "servos.h"
 #include "actions.h"
@@ -96,12 +89,6 @@ uint8_t action_self_read();
 
 LAST_ERR_t gt_last_err;
 
-DBG_BUFF_t *gpt_dbg_log_buff;
-
-//DBG_BUFF_t *gpt_csr_log_buff      = &gt_csr_log_buff;
-//DBG_BUFF_t *gpt_cmd_resp_log_buff = &gt_cmd_resp_log_buff; 
-
-
 void _fatal_trap(uint16_t us_line_num)
 {
 
@@ -119,53 +106,37 @@ void _fatal_trap(uint16_t us_line_num)
 
 void init_hw_unused(void)
 {
+
+    //DDRD = 0xFF;
+    //DDRL = 0xFF;
+    //DDRE = 0xFF;
+    //DDRK = 0xFF;
+    //DDRA = 0xFF;
+    //DDRH = 0xFF;
+
     // Set unused pins to pull-up inputs
     PORTA |= (1 << PINA7);  // Due to schematic Bug
 
     PORTB |= (1 << PINB7);
 
     PORTG |= (1 << PING0) |
-    (1 << PING2) |
-    (1 << PING4) |
-    (1 << PING5);
+             (1 << PING2) |
+             (1 << PING4) |
+             (1 << PING5);
 
     PORTF |= (1 << PINF0) |
-    (1 << PINF1) |
-    (1 << PINF2) |
-    (1 << PINF3);
+             (1 << PINF1) |
+             (1 << PINF2) |
+             (1 << PINF3);
 
     PORTH |= (1 << PINH4) | // ADDR_3_UNUSED_MASK
-    (1 << PINH5) |
-    (1 << PINH6) |
-    (1 << PINH7);
+             (1 << PINH5) |
+             (1 << PINH6) |
+             (1 << PINH7);
 
     PORTJ |= (1 << PINJ0) |
-    (1 << PINJ1) |
-    (1 << PINJ7);
-
-}
-
-void init_hw_fifo(void)
-{
-
-    // Init USB FIFO control pins
-    // USB SI       (active low) - output 1
-    // RD output 1  (active low)
-    // WR output 0  (active high)
-    // TXF# pullup input
-    // RXE# pullup input
-
-    FIFO_CNTR_PORT |= (0<<FIFO_CNTR_WR )|
-    (1<<FIFO_CNTR_RD )|
-    (1<<FIFO_CNTR_RXF)|
-    (1<<FIFO_CNTR_TXE)|
-    (1<<FIFO_CNTR_SI );
-
-    FIFO_CNTR_DIR  |= (1<<FIFO_CNTR_RD )|
-    (1<<FIFO_CNTR_WR )|
-    (1<<FIFO_CNTR_SI );
-
-    // FIFO data bus tristated
+             (1 << PINJ1) |
+             (1 << PINJ7);
 
 }
 
@@ -264,13 +235,14 @@ int real_main()
     leds_control(0x00);
 
     // Init HW info structure
-    gt_hw_info.uc_ver_maj = pgm_read_byte_near(&(gca_version[0]));
-    gt_hw_info.uc_ver_min = pgm_read_byte_near(&(gca_version[1]));
+    gt_hw_info.t_sign.uc_ver_maj = pgm_read_byte_near(&(gca_version[0]));
+    gt_hw_info.t_sign.uc_ver_min = pgm_read_byte_near(&(gca_version[1]));
     gt_hw_info.pf_led_func = leds_control;
 
 
-    for(uc_i = 0; uc_i < SIGN_LEN; uc_i++){
-        gt_hw_info.ca_signature[uc_i] = 
+    for(uc_i = 0; uc_i < SIGN_LEN; uc_i++)
+    {
+        gt_hw_info.t_sign.ca_sign[uc_i] = 
             pgm_read_byte_near(&(gca_signature[uc_i]));
     }
 
@@ -278,12 +250,17 @@ int real_main()
     // Enable Interrupts
     GLOBAL_IRQ_FORCE_EN();
 
-    DBG_LOG("BTCAR mcu started");
+    DBG_LOG("---BTCAR mcu started---");
 
-    while(1){
-        if (guc_mcu_cmd) {
+    while(1)
+    {
+        if (guc_mcu_cmd) 
+        {
             guc_mcu_cmd = proceed_command(guc_mcu_cmd);
         }
+
+        dbg_unload(-1);
+
     }
 
     return 0;
@@ -374,31 +351,32 @@ uint8_t proceed_command(uint8_t uc_mcu_cmd){
 
 uint8_t action_ping(){
 
-    // 0x11 0xNN        0xDD
+    // 0x03 0xNN        0xDD
     // CMD  DATA LEN    DATA
 
+    uint8_t   uc_rc;
     uint8_t   uc_data_len, uc_data;
+    static  uint8_t uc_fixed_header[2] = 
+        { ACTION_PING, 0x40 };
     
-    // Write header 
-    FIFO_WR(0x03);
-
     // Read Len 
     FIFO_RD(&uc_data_len);
-    
-    // Write Length back
-    FIFO_WR(uc_data_len+1);
 
-    // Write Platform
-    uc_data = 0x40;
-    FIFO_WR(uc_data);
+    uc_rc = ERR_OK;
 
+    // Write Header
+    uc_rc |= cmd_resp_wr(&uc_fixed_header[0], sizeof(uc_fixed_header));
+
+    // Write Data
     while(uc_data_len){
         FIFO_RD(&uc_data);
         uc_data_len--;
-        FIFO_WR(uc_data);
+        uc_rc |= cmd_resp_wr(&uc_data, 1);
     }
 
+    cmd_resp_wr_commit(uc_rc);
     return 0;
+
 }
 
 
@@ -586,4 +564,33 @@ ISR(USART2_RX_vect) {
     }
     
     return;    
+}
+
+
+void init_hw_fifo(void)
+{
+
+    // Init USB FIFO control pins
+    // USB SI       (active low) - output 1
+    // RD output 1  (active low)
+    // WR output 0  (active high)
+    // TXF# pullup input
+    // RXE# pullup input
+
+    // AV NOTE: on FT232BL WR is active high, but as it is 
+    //          pulled up, initialization to 0 cause false 
+    //          write to FIFO and breaks data flow. Thus,
+    //          initialized to 1.
+    FIFO_CNTR_PORT |= (1<<FIFO_CNTR_WR );
+
+    FIFO_CNTR_PORT |= (1<<FIFO_CNTR_RD )|
+                      (1<<FIFO_CNTR_RXF)|
+                      (1<<FIFO_CNTR_TXE)|
+                      (1<<FIFO_CNTR_SI );
+
+    FIFO_CNTR_DIR  |= (1<<FIFO_CNTR_RD )|
+                      (1<<FIFO_CNTR_WR )|
+                      (1<<FIFO_CNTR_SI );
+
+    // FIFO data bus tristated
 }
