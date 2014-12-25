@@ -25,4 +25,6 @@ extern void dbg_log(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *
 extern uint8_t cmd_resp_wr(uint8_t *puc_src, size_t t_inp_len);
 extern void    cmd_resp_wr_commit(uint8_t uc_wr_rc);
 
+extern uint8_t g_acc_dbg_en;
+
 #endif // __DBG_LOG_H__

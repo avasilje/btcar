@@ -25,6 +25,7 @@
 #include "dbg_log.h"
 #include "servos.h"
 #include "actions.h"
+#include "acceler.h"
 
 // Global interrupt disabling reference counter
 // Stores number of times of ISR disabling. 0 -> ISR Enabled
@@ -39,6 +40,10 @@ int8_t  guc_bt_if_curr_idx;
 #define BT_IF_SERVO_DATA_LEN    2
 uint8_t guca_bt_if_servo_data[BT_IF_SERVO_DATA_LEN];
 
+/*
+const char fusedata[] __attribute__ ((section (".fuse"))) = 
+    {0xDF, 0x98, 0xFC, 0xFF, 0xFF, 0xFF};
+*/
 extern void unit_tests_main();
 
 #if 0
@@ -67,6 +72,18 @@ extern void unit_tests_main();
 // --- 
 // ---- ---------------------------------------------
  #endif
+
+ #if 0
+    // Timers assignment:
+    //  0. ( 8bit) Accelerators ADC
+    //  1. (16bit)
+    //  2. ( 8bit)
+    //  3. (16bit) USB RX timer
+    //  4. (16bit) DBG buffer unload (not fully in use)
+    //  5. (16bit) Servo
+
+ #endif
+
  
 #define ACTION_SELF_WRITE   0x01    // Not tabled function (hardcoded)
 #define ACTION_SELF_READ    0x02    // Not tabled function (hardcoded)
@@ -205,9 +222,12 @@ int real_main()
 
     init_hw_io();
 
+    init_accel();
+
     init_servos();
 
     init_bt_uart();
+
 
     leds_control(0xFF);
 

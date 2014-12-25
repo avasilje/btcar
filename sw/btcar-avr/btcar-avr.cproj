@@ -42,7 +42,8 @@
       <ToolOptions>
         <InterfaceProperties>
         </InterfaceProperties>
-        <InterfaceName>JTAG</InterfaceName>
+        <InterfaceName>
+        </InterfaceName>
       </ToolOptions>
       <ToolType>com.atmel.avrdbg.tool.simulator</ToolType>
       <ToolNumber>
@@ -53,7 +54,7 @@
     <com_atmel_avrdbg_tool_atmelice>
       <ToolOptions>
         <InterfaceProperties>
-          <JtagDbgClock>1000000</JtagDbgClock>
+          <JtagDbgClock>2000000</JtagDbgClock>
           <JtagEnableExtResetOnStartSession>false</JtagEnableExtResetOnStartSession>
           <JtagInChain>false</JtagInChain>
           <JtagDevicesBefore>0</JtagDevicesBefore>
@@ -81,6 +82,7 @@
       <ToolNumber>00B000001E43</ToolNumber>
       <ToolName>JTAGICE mkII</ToolName>
     </com_atmel_avrdbg_tool_jtagicemkii>
+    <preserveEEPROM>False</preserveEEPROM>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <ToolchainSettings>
@@ -209,6 +211,12 @@
     <OutputPath>bin\Debug_simul_unit_test\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="acceler.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="acceler.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="actions.c">
       <SubType>compile</SubType>
     </Compile>

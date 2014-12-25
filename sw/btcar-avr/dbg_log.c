@@ -17,6 +17,8 @@
 #include "dbg_log.h"
 #include "dbg_log_int.h"
 
+uint8_t g_acc_dbg_en = 0;
+
 DBG_BUFF_t gt_dbg_log_buff;
 DBG_BUFF_t gt_cmd_rsp_buff;
 
@@ -87,8 +89,10 @@ uint8_t dbg_buff_preserve(uint8_t uc_pres_len){
 
 void dbg_buff_wr_commit(void)
 {
+    int8_t  uc_wr_idx = gt_dbg_log_buff.uc_isr_wr_idx;
+    
     GLOBAL_IRQ_DIS();
-    gt_dbg_log_buff.uc_wr_idx = gt_dbg_log_buff.uc_isr_wr_idx;
+    gt_dbg_log_buff.uc_wr_idx = uc_wr_idx;
     GLOBAL_IRQ_RESTORE();
 
     // Check buffer fill level
@@ -202,17 +206,17 @@ void dbg_log(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_text
     uint8_t uc_wr_idx;
     size_t  t_tot_len;
 
-    // Sanity check
-    ASSERT(t_text_size < UINT8_MAX);
-
     // preserve space in buffer
     // Calculate total msg size
-    t_tot_len = (uint8_t)
+    t_tot_len =
             1 + //  DBG Log mark
             1 + //  File ID
             2 + //  Line
             1 + //  Size
             t_text_size;
+
+    // Sanity check
+    ASSERT(t_tot_len < UINT8_MAX);
 
     uc_wr_idx = dbg_buff_preserve((uint8_t)t_tot_len);
     if (gt_last_err == ERR_NOK)
@@ -241,23 +245,25 @@ void dbg_log(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_text
 void dbg_log_isr(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_text)
 {
     uint8_t uc_isr_wr_idx;
+    size_t  t_tot_len;
     uint8_t uc_tot_len;
     uint8_t uc_user_wr_ongoing;
     int16_t s_free;
 
-    // Sanity check
-    ASSERT(t_text_size < UINT8_MAX);
-
     // Preserve space in buffer
     
     // Calculate total msg size
-    uc_tot_len = (uint8_t)
+    t_tot_len =
             1 + //  DBG Log mark
             1 + //  File ID
             2 + //  Line
             1 + //  Size
             t_text_size;
 
+    // Sanity check
+    ASSERT(t_tot_len < UINT8_MAX);
+
+    uc_tot_len = t_tot_len;
     uc_isr_wr_idx = gt_dbg_log_buff.uc_isr_wr_idx;
     
     // If ISR and non-ISR write indices are not equal that means 
@@ -301,7 +307,7 @@ void dbg_log_isr(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_
 
     // Write Header
     gt_dbg_log_buff.uca_data[uc_isr_wr_idx++] = DBG_BUFF_MARK_LOG_ISR;
-    gt_dbg_log_buff.uca_data[uc_isr_wr_idx++] = t_text_size;
+    gt_dbg_log_buff.uca_data[uc_isr_wr_idx++] = uc_tot_len;
     gt_dbg_log_buff.uca_data[uc_isr_wr_idx++] = uc_fid;
     gt_dbg_log_buff.uca_data[uc_isr_wr_idx++] = us_line  & 0xFF;
     gt_dbg_log_buff.uca_data[uc_isr_wr_idx++] = us_line  >> 8;

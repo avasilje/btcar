@@ -16,6 +16,7 @@
 #define FID_DBG_LOG     2
 #define FID_ACTIONS     3
 #define FID_SERVOS      4
+#define FID_ACCELER     5
 
 
 #define FID_UT_DBG_BUFF  20

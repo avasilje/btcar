@@ -80,6 +80,7 @@ T_DEV_RX_STREAM gt_stream_crsp = {
     dev_rx_stream_handler_crsp
 }; // Command Response
 
+HANDLE gh_accdbg_file = INVALID_HANDLE_VALUE;
 
 // ---------------------------- IO PIPE ---------------------------------------
 HANDLE gh_io_pipe;
@@ -111,7 +112,7 @@ WCHAR gca_dev_resp_str[RESP_STR_LEN];
 typedef struct T_DEV_RX_tag {
     BYTE                uca_dev_rx_buff[1024];
     T_DEV_RX_STREAM     *pt_curr_stream;
-    DWORD               dw_stream_len;
+    DWORD               dw_stream_len;          // Number of bytes expected in stream
 } T_DEV_RX;
 
 T_DEV_RX  gt_dev_rx = {
@@ -348,7 +349,7 @@ int io_pipe_rx_init (void){
     n_rc = ReadFile(
         gh_io_pipe,                             //__in         HANDLE hFile,
         gca_io_pipe_rx_buff,                    //__out        LPVOID lpBuffer,
-        IO_PIPE_RX_BUFF_LEN,                  //__in         DWORD nNumberOfBytesToRead,
+        IO_PIPE_RX_BUFF_LEN,                    //__in         DWORD nNumberOfBytesToRead,
         NULL,                                   //__out_opt    LPDWORD lpNumberOfBytesRead,
         &gt_io_pipe_rx_overlap);                //__inout_opt  LPOVERLAPPED lpOverlapped
 
@@ -1067,14 +1068,6 @@ int dev_rx_proc (DWORD dw_bytes_rcv)
     // Data received for already started stream
     else 
     {
-        if (gt_dev_rx.dw_stream_len < dw_bytes_rcv)
-        {
-            wprintf(L"Garbage received 3\n");
-            gt_flags.dev_conn = FL_FALL;
-            SetEvent(gha_events[HANDLE_NOT_IDLE]);
-            return TRUE;
-        }
-
         pt_stream = gt_dev_rx.pt_curr_stream;
         gt_dev_rx.dw_stream_len -= dw_bytes_rcv;
         pt_stream->dw_wr_idx += dw_bytes_rcv;
@@ -1084,6 +1077,13 @@ int dev_rx_proc (DWORD dw_bytes_rcv)
         {
             pt_stream->pf_handler();
         }
+        else if (pt_stream->dw_btr < pt_stream->dw_wr_idx)
+        {
+            wprintf(L"Garbage received 3\n");
+            gt_flags.dev_conn = FL_FALL;
+            SetEvent(gha_events[HANDLE_NOT_IDLE]);
+            return TRUE;
+        }
     }
 
     dw_stream_len = gt_dev_rx.dw_stream_len;
@@ -1092,13 +1092,18 @@ int dev_rx_proc (DWORD dw_bytes_rcv)
     // Continue read from stream if not finished
     if (dw_stream_len)
     {
+        DWORD bytes_remains;
+
         pb_stream_buff = &pt_stream->ca_buff[pt_stream->dw_wr_idx];
 
         // Limit btr to number specified by command processor
         dw_stream_btr = dw_stream_len;
-        if (dw_stream_len > pt_stream->dw_btr)
+        // Reamainder = total requested - already received
+        bytes_remains = pt_stream->dw_btr - pt_stream->dw_wr_idx;
+
+        if (dw_stream_len > bytes_remains)
         {
-            dw_stream_btr = pt_stream->dw_btr;
+            dw_stream_btr = bytes_remains;
         }
         pb_stream_buff = &pt_stream->ca_buff[pt_stream->dw_wr_idx];
         
@@ -1184,10 +1189,10 @@ void dev_rx_stream_handler_dbgl (void)
                 memset(pt_stream->ca_buff, 0xCC, sizeof(pt_stream->ca_buff));
                 return;
             case DBG_BUFF_MARK_LOG:
+            case DBG_BUFF_MARK_LOG_ISR:
                 // Reguest full header    
                 pt_stream->dw_btr = pt_dbgl_hdr->uc_size;
                 break;
-            case DBG_BUFF_MARK_LOG_ISR:
                 // not ready
                 break;
             default:
@@ -1197,7 +1202,8 @@ void dev_rx_stream_handler_dbgl (void)
         return;
     }
 
-    if (pt_dbgl_hdr->uc_mark == DBG_BUFF_MARK_LOG)
+    if ( (pt_dbgl_hdr->uc_mark == DBG_BUFF_MARK_LOG) |
+         (pt_dbgl_hdr->uc_mark == DBG_BUFF_MARK_LOG_ISR) )
     {
         // Full DBGL message received
         if (pt_stream->dw_wr_idx != pt_dbgl_hdr->uc_size)
@@ -1205,11 +1211,40 @@ void dev_rx_stream_handler_dbgl (void)
             // something wrong
         }
 
-        // Everething is OK here proceed with printout
-        wprintf(L"DBG_LOG: %s(%d):%s\n", 
-            fid2fname(pt_dbgl_hdr->uc_fid),
-            pt_dbgl_hdr->us_line,
-            dbgl2str(pt_dbgl_hdr));
+        // AV ACC DBG: Remove after debug!!!
+        if (pt_dbgl_hdr->uc_fid == 5)
+        {
+            DWORD   btw, bwritten;
+            if (gh_accdbg_file == INVALID_HANDLE_VALUE)
+            {
+                gh_accdbg_file = CreateFile(
+                    L"acc_bdg.bin",                    //_In_      LPCTSTR lpFileName,
+                    (GENERIC_WRITE | GENERIC_READ),    //_In_      DWORD dwDesiredAccess,
+                    FILE_SHARE_READ,                   //_In_      DWORD dwShareMode,
+                    NULL,                              //_In_opt_  LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+                    CREATE_ALWAYS,                     //_In_      DWORD dwCreationDisposition,
+                    FILE_ATTRIBUTE_NORMAL,             //_In_      DWORD dwFlagsAndAttributes,
+                    NULL                               //_In_opt_  HANDLE hTemplateFile
+                );
+            }
+
+            btw = pt_dbgl_hdr->uc_size - sizeof(T_DBGL_HDR);
+            WriteFile(
+               gh_accdbg_file,                              //_In_         HANDLE hFile,
+               (int8_t *)pt_dbgl_hdr + sizeof(T_DBGL_HDR),  //_In_         LPCVOID lpBuffer,
+               btw,                                         //_In_         DWORD nNumberOfBytesToWrite,
+               &bwritten,                                   //_Out_opt_    LPDWORD lpNumberOfBytesWritten,
+               NULL                                         //_Inout_opt_  LPOVERLAPPED lpOverlapped
+            );
+        }
+        else
+        {
+            // Everething is OK here proceed with printout
+            wprintf(L"DBG_LOG: %s(%d):%s\n", 
+                fid2fname(pt_dbgl_hdr->uc_fid),
+                pt_dbgl_hdr->us_line,
+                dbgl2str(pt_dbgl_hdr));
+        }
 
         pt_stream->dw_btr = DBG_LOG_HEADER_SIZE;
         pt_stream->dw_wr_idx = 0;

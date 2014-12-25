@@ -12,12 +12,6 @@
 // In program memory
 
 
-// Minor and Major version
-// -----------------------------------------------Do not forget update text signature -----
-
-// ----------------------------------------------------------------------------------------
-
-
 //------ Global variables SRAM ---------------------
 extern uint8_t guc_unit_test_cnt;
 

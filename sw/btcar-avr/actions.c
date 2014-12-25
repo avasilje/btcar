@@ -62,7 +62,14 @@ uint8_t action_leds_on(){
 
     gt_hw_info.pf_led_func(uc_data);
 
+    if (g_acc_dbg_en)
+    {
+        DBG_LOG("ACC dbg OFF");
+
+    }
     DBG_LOG("Leds cmd received");
+    
+    g_acc_dbg_en ^= 1;
 
     return 0;
 }
