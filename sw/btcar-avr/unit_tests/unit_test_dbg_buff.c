@@ -26,6 +26,7 @@
 #include "btcar_common.h"
 #include "dbg_log.h"
 #include "dbg_log_int.h"
+#include "actions.h"
 
 extern DBG_BUFF_t gt_dbg_log_buff;  /* Private DBG_BUFF data. Visible for UT only */
 extern DBG_BUFF_t gt_cmd_rsp_buff;  /* Private DBG_BUFF data. Visible for UT only */
@@ -95,6 +96,41 @@ void unit_test_dbg_buf_unload(DBG_BUFF_t *dbg_buff)
     }
 
     return;    
+}
+
+void unit_test_dbg_log_d(void)
+{
+
+    uint8_t tmp_arr[32];
+    uint8_t uc_len;
+
+    DBG_LOG_D("Just note", NULL);
+
+    DBG_LOG_D("Just note 1st line"
+              "Just note 2nd line", 
+              NULL
+    );
+
+    DBG_LOG_D("signature %(sign_struct)",
+              VAR2ADDR_SIZE(gt_hw_info.t_sign));
+
+    DBG_LOG_D("signature %(sign_struct) just digit %(uint8_t)",
+              VAR2ADDR_SIZE(gt_hw_info.t_sign),
+              VAR2ADDR_SIZE(uc_len));
+
+    unit_test_dbg_buf_unload(&gt_dbg_log_buff);
+    unit_test_dbg_buf_unload(&gt_dbg_log_buff);
+    unit_test_dbg_buf_unload(&gt_dbg_log_buff);
+    unit_test_dbg_buf_unload(&gt_dbg_log_buff);
+
+    DBG_LOG("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");    // 64
+    DBG_LOG("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");    // 64
+    DBG_LOG("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");    // 64
+
+    DBG_LOG_D("Overflow here",
+              VAR2ADDR_SIZE(tmp_arr));
+
+
 }
 
 void unit_test_dbg_log(void)
@@ -303,17 +339,17 @@ void unit_test_cmd_resp(void)
 
     uc_rc = cmd_resp_wr(guca_test_data_256, DBG_BUFF_LEN-3); // Return OK
     ASSERT(uc_rc == ERR_OK);
-    cmd_resp_wr_commit();
+    cmd_resp_wr_commit(uc_rc);
 
     unit_test_dbg_buf_unload(&gt_cmd_rsp_buff);
 
     // 2. Single write trivials
     uc_rc = ERR_OK;
     uc_rc |= cmd_resp_wr(guca_test_data_256, 0);
-    cmd_resp_wr_commit();
+    cmd_resp_wr_commit(uc_rc);
 
     uc_rc |= cmd_resp_wr(guca_test_data_256, 1);
-    cmd_resp_wr_commit();
+    cmd_resp_wr_commit(uc_rc);
 
     ASSERT(uc_rc == ERR_OK);
     
@@ -322,10 +358,10 @@ void unit_test_cmd_resp(void)
     
     // 3. Single write with overlap
     uc_rc |= cmd_resp_wr(guca_test_data_256, (DBG_BUFF_LEN >> 1)-3);
-    cmd_resp_wr_commit();
+    cmd_resp_wr_commit(uc_rc);
 
     uc_rc |= cmd_resp_wr(guca_test_data_256, (DBG_BUFF_LEN >> 1)-3);
-    cmd_resp_wr_commit();
+    cmd_resp_wr_commit(uc_rc);
 
     ASSERT(uc_rc == ERR_OK);
 
@@ -339,13 +375,13 @@ void unit_test_cmd_resp(void)
         uc_rc |= cmd_resp_wr(guca_test_data_256, 0x02);
         uc_rc |= cmd_resp_wr(guca_test_data_256, 0x0F);
         uc_rc |= cmd_resp_wr(guca_test_data_256, 0x00);
-        cmd_resp_wr_commit();
+        cmd_resp_wr_commit(uc_rc);
 
         uc_rc |= cmd_resp_wr(guca_test_data_256, 0x01);
         uc_rc |= cmd_resp_wr(guca_test_data_256, 0x01);
         uc_rc |= cmd_resp_wr(guca_test_data_256, 0x0F);
         uc_rc |= cmd_resp_wr(guca_test_data_256, 0x0F);
-        cmd_resp_wr_commit();
+        cmd_resp_wr_commit(uc_rc);
 
         unit_test_dbg_buf_unload(&gt_cmd_rsp_buff);
         unit_test_dbg_buf_unload(&gt_cmd_rsp_buff);
@@ -377,9 +413,13 @@ void unit_tests_main ()
     /* Check user & ISR write to buffer with overflows */
 //    unit_test_dbg_log();
 
+      unit_test_dbg_log_d();
+
 //    unit_test_cmd_resp();
 
-    unit_test_servo_ch();
+//    unit_test_servo_ch();
+
+
 
 }
 

@@ -12,8 +12,48 @@ typedef struct {
         char     ca_sign[SIGN_LEN];
     } t_sign;
     void (*pf_led_func)(uint8_t);
-    uint8_t  reserved[128-44];
-}HW_INFO;   
+    uint8_t  reserved[128-sizeof(struct sign_struct) - sizeof(void*)];
+}HW_INFO;
+
+typedef struct dummy_struct{
+    uint16_t int16_A;
+    uint8_t int8_A;
+} T_DUMMY;
+
+typedef struct {
+    HW_INFO *pointer_A;
+    HW_INFO  struct_A;
+    struct test_struct {
+        union {
+            uint8_t union_A1;
+            uint16_t union_A2;
+        };
+
+        union {
+            uint8_t union_B1;
+            uint16_t union_B2;
+        } named_union_B;
+
+        T_DUMMY  str_str_A;
+        uint8_t  field_A;
+        uint8_t  field_B;
+        char     array_A[5];
+        char     array_AA[4][3];
+    } struct_B;
+    
+    void (*pf_func_A)(uint8_t);
+    void (*pf_func_B)(HW_INFO *hw_info_p);
+    test_struct struct_array_BB[3][5];
+
+    enum {
+        enum_str_A = 1;
+        enum_str_B = 2;
+        enum_str_C = 5;
+        enum_str_D = 10;
+    } enum_A;
+
+}DBGLOG_TEST;   
+
 
 
 typedef union {

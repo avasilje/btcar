@@ -40,10 +40,11 @@ int8_t  guc_bt_if_curr_idx;
 #define BT_IF_SERVO_DATA_LEN    2
 uint8_t guca_bt_if_servo_data[BT_IF_SERVO_DATA_LEN];
 
-/*
+//#if defined(SIMULATOR) | defined(UNIT_TEST)
 const char fusedata[] __attribute__ ((section (".fuse"))) = 
     {0xDF, 0x98, 0xFC, 0xFF, 0xFF, 0xFF};
-*/
+//#endif 
+
 extern void unit_tests_main();
 
 #if 0
@@ -271,6 +272,21 @@ int real_main()
     GLOBAL_IRQ_FORCE_EN();
 
     DBG_LOG("---BTCAR mcu started---");
+
+    DBG_LOG_D("Just note", NULL);
+
+    DBG_LOG_D("Just note 1st line"
+              "Just note 2nd line", 
+              NULL
+    );
+
+    DBG_LOG_D("signature %(sign_struct)",
+              VAR2ADDR_SIZE(gt_hw_info.t_sign));
+
+    DBG_LOG_D("signature %(sign_struct) just digit %(uint8_t)",
+              VAR2ADDR_SIZE(gt_hw_info.t_sign),
+              VAR2ADDR_SIZE(uc_i));
+
 
     while(1)
     {

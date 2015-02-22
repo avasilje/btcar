@@ -8,8 +8,11 @@
  *    
  *
  ******************************************************************************/
+#include "local_fids.h"
+#define LOCAL_FILE_ID FID_DBG_LOG
 
 #include <stdint.h>
+#include <stdarg.h>
 #include <string.h>
 
 #include "btcar_common.h"
@@ -73,7 +76,7 @@ uint8_t dbg_buff_preserve(uint8_t uc_pres_len){
         { // Write new overflow mark
             gt_dbg_log_buff.uca_data[uc_wr_idx++] = DBG_BUFF_MARK_OVFL;
             gt_dbg_log_buff.uca_data[uc_wr_idx++] = 1;
-            gt_dbg_log_buff.uc_isr_wr_idx = uc_wr_idx;
+            gt_dbg_log_buff.aux_wr_idx.uc_isr = uc_wr_idx;
             gt_dbg_log_buff.uc_wr_idx = uc_wr_idx;
         }
         GLOBAL_IRQ_RESTORE();
@@ -81,7 +84,7 @@ uint8_t dbg_buff_preserve(uint8_t uc_pres_len){
         return 0;   // Don't care
     }
     
-    gt_dbg_log_buff.uc_isr_wr_idx += uc_pres_len;
+    gt_dbg_log_buff.aux_wr_idx.uc_isr += uc_pres_len;
     GLOBAL_IRQ_RESTORE();
 
     return uc_wr_idx;
@@ -89,7 +92,7 @@ uint8_t dbg_buff_preserve(uint8_t uc_pres_len){
 
 void dbg_buff_wr_commit(void)
 {
-    int8_t  uc_wr_idx = gt_dbg_log_buff.uc_isr_wr_idx;
+    int8_t  uc_wr_idx = gt_dbg_log_buff.aux_wr_idx.uc_isr;
     
     GLOBAL_IRQ_DIS();
     gt_dbg_log_buff.uc_wr_idx = uc_wr_idx;
@@ -101,7 +104,7 @@ void dbg_buff_wr_commit(void)
     return;
 }
 
-void dbg_buff_wr_wrap(uint8_t *puc_buff_data, uint8_t uc_wr_idx, uint8_t* puc_src, uint8_t uc_len)
+uint8_t dbg_buff_wr_wrap(uint8_t *puc_buff_data, uint8_t uc_wr_idx, uint8_t* puc_src, uint8_t uc_len)
 {
     uint8_t *puc_dst = &puc_buff_data[uc_wr_idx];
     uint8_t uc_n;
@@ -119,13 +122,16 @@ void dbg_buff_wr_wrap(uint8_t *puc_buff_data, uint8_t uc_wr_idx, uint8_t* puc_sr
     }
 
     // wrap around and continue if needed
-    puc_dst = &puc_buff_data[0];
-    while (uc_len--)
+    if (uc_len)
     {
-        *puc_dst++ = *puc_src++;
+        puc_dst = &puc_buff_data[0];
+        while (uc_len--)
+        {
+            *puc_dst++ = *puc_src++;
+        }
     }
 
-    return;
+    return (puc_dst - puc_buff_data);
 }
 
 uint8_t cmd_resp_wr(uint8_t *puc_src, size_t t_inp_len)
@@ -133,7 +139,7 @@ uint8_t cmd_resp_wr(uint8_t *puc_src, size_t t_inp_len)
     uint8_t uc_wr_idx, uc_len;
     int16_t s_free;
 
-    uc_wr_idx = gt_cmd_rsp_buff.uc_tmp_wr_idx;
+    uc_wr_idx = gt_cmd_rsp_buff.aux_wr_idx.uc_tmp;
     uc_len = (uint8_t)t_inp_len;
 
     // sanity check
@@ -159,9 +165,9 @@ uint8_t cmd_resp_wr(uint8_t *puc_src, size_t t_inp_len)
             return ERR_NOK;
     }
 
-    dbg_buff_wr_wrap(gt_cmd_rsp_buff.uca_data, uc_wr_idx, puc_src, uc_len);
+    uc_wr_idx = dbg_buff_wr_wrap(gt_cmd_rsp_buff.uca_data, uc_wr_idx, puc_src, uc_len);
 
-    gt_cmd_rsp_buff.uc_tmp_wr_idx = uc_wr_idx + uc_len;
+    gt_cmd_rsp_buff.aux_wr_idx.uc_tmp = uc_wr_idx;
 
     return ERR_OK;
 }
@@ -174,12 +180,12 @@ void cmd_resp_wr_commit(uint8_t uc_wr_rc)
     // Undo write if write return code is NOK
     if (uc_wr_rc == ERR_NOK)
     {
-        gt_cmd_rsp_buff.uc_tmp_wr_idx = gt_cmd_rsp_buff.uc_wr_idx;
+        gt_cmd_rsp_buff.aux_wr_idx.uc_tmp = gt_cmd_rsp_buff.uc_wr_idx;
         return;
     }
 
     uc_wr_idx = gt_cmd_rsp_buff.uc_wr_idx;
-    uc_tmp_wr_idx = gt_cmd_rsp_buff.uc_tmp_wr_idx;
+    uc_tmp_wr_idx = gt_cmd_rsp_buff.aux_wr_idx.uc_tmp;
 
     s_len = (int16_t)uc_tmp_wr_idx - uc_wr_idx;
     if (s_len < 0) s_len += DBG_BUFF_LEN;
@@ -201,7 +207,7 @@ void cmd_resp_wr_commit(uint8_t uc_wr_rc)
  *    The function might be interrupted by ISR, thus it first preserves
  *    memory in the buffer and then commit it. 
  */
-void dbg_log(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_text)
+void dbg_log(uint16_t us_line, uint8_t uc_fid, char *pc_text, size_t t_text_size)
 {
     uint8_t uc_wr_idx;
     size_t  t_tot_len;
@@ -230,7 +236,9 @@ void dbg_log(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_text
     gt_dbg_log_buff.uca_data[uc_wr_idx++] = us_line  >> 8;
 
     // Write body
-    dbg_buff_wr_wrap(gt_dbg_log_buff.uca_data, uc_wr_idx, (uint8_t*)pc_text, (uint8_t)t_text_size);
+    dbg_buff_wr_wrap( gt_dbg_log_buff.uca_data, uc_wr_idx,
+                      (uint8_t*)pc_text,
+                      (uint8_t)t_text_size);
 
     // Commit log message
     dbg_buff_wr_commit();
@@ -238,11 +246,12 @@ void dbg_log(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_text
     return;
 }
 
+
 /*
  *  The function write LOG message to DBG buffer from an ISR context.
  *  The function writes using ISR-dedicated write pointer.
  */
-void dbg_log_isr(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_text)
+void dbg_log_isr(uint16_t us_line, uint8_t uc_fid, char *pc_text, size_t t_text_size)
 {
     uint8_t uc_isr_wr_idx;
     size_t  t_tot_len;
@@ -264,7 +273,7 @@ void dbg_log_isr(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_
     ASSERT(t_tot_len < UINT8_MAX);
 
     uc_tot_len = t_tot_len;
-    uc_isr_wr_idx = gt_dbg_log_buff.uc_isr_wr_idx;
+    uc_isr_wr_idx = gt_dbg_log_buff.aux_wr_idx.uc_isr;
     
     // If ISR and non-ISR write indices are not equal that means 
     // user space write is ongoing. Thus NOT need to update user WR idx.
@@ -288,7 +297,7 @@ void dbg_log_isr(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_
         { // Write new overflow mark
             gt_dbg_log_buff.uca_data[uc_isr_wr_idx++] = DBG_BUFF_MARK_OVFL;
             gt_dbg_log_buff.uca_data[uc_isr_wr_idx++] = 1;
-            gt_dbg_log_buff.uc_isr_wr_idx = uc_isr_wr_idx;
+            gt_dbg_log_buff.aux_wr_idx.uc_isr = uc_isr_wr_idx;
             
             if (!uc_user_wr_ongoing)
             {
@@ -298,7 +307,7 @@ void dbg_log_isr(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_
         return;
     }
 
-    gt_dbg_log_buff.uc_isr_wr_idx = uc_isr_wr_idx + uc_tot_len;
+    gt_dbg_log_buff.aux_wr_idx.uc_isr = uc_isr_wr_idx + uc_tot_len;
    
     if (!uc_user_wr_ongoing)
     {
@@ -318,6 +327,79 @@ void dbg_log_isr(uint16_t us_line, uint8_t uc_fid, size_t t_text_size, char *pc_
     return;
 }
 
+
+
+void dbg_log_d (uint16_t us_line, uint8_t uc_fid, ...)
+{
+// Variable params must be passed in form : "addr0, size0, ... addrN, sizeN, NULL"
+    void  *pt_data;
+    va_list args;
+
+    uint8_t uc_wr_idx;
+    uint8_t uc_size;
+    size_t  t_tot_len;
+
+    // Get total data length to preserve 
+    // space in log buffer
+    t_tot_len =         // Header size
+            1 + //  DBG Log mark
+            1 + //  Size
+            1 + //  File ID
+            2;  //  Line
+            
+
+    va_start(args, uc_fid);
+        if (args)
+        {
+            while((pt_data = va_arg(args, void*)))
+            {
+                uc_size = (uint8_t)va_arg(args, size_t);
+                t_tot_len += sizeof(uc_size); // sizeof length field of particular token
+                t_tot_len += uc_size;         // size of particular token
+            };
+        }
+    va_end(args);
+
+    // Sanity check
+    ASSERT(t_tot_len < UINT8_MAX);
+
+    uc_wr_idx = dbg_buff_preserve((uint8_t)t_tot_len);
+    if (gt_last_err == ERR_NOK)
+        return;
+    
+    // Write header
+    gt_dbg_log_buff.uca_data[uc_wr_idx++] = DBG_BUFF_MARK_LOG_D;
+    gt_dbg_log_buff.uca_data[uc_wr_idx++] = t_tot_len;
+    gt_dbg_log_buff.uca_data[uc_wr_idx++] = uc_fid;
+    gt_dbg_log_buff.uca_data[uc_wr_idx++] = us_line  & 0xFF;
+    gt_dbg_log_buff.uca_data[uc_wr_idx++] = us_line  >> 8;
+
+    va_start(args, uc_fid);
+        if (args)
+        {
+            while((pt_data = va_arg(args, void*)))
+            {
+                uc_size = (uint8_t)va_arg(args, size_t);
+            
+                // write data size
+                uc_wr_idx = dbg_buff_wr_wrap( gt_dbg_log_buff.uca_data, uc_wr_idx,
+                                              (uint8_t*)&uc_size,
+                                              (uint8_t)sizeof(uc_size));
+
+                // Write data body
+                uc_wr_idx = dbg_buff_wr_wrap( gt_dbg_log_buff.uca_data, uc_wr_idx,
+                                              (uint8_t*)pt_data,
+                                              (uint8_t)uc_size);
+            };
+        }
+    va_end(args);
+
+    // Commit log message
+    dbg_buff_wr_commit();
+
+    return;
+
+}
 
 void dbg_buffer_init()
 {

@@ -32,7 +32,7 @@ extern uint8_t guc_unit_test_cnt;
 #define SERVOS_CH_OCR_1MS     ((SERVOS_CH_TMR_PRD << SERVOS_CH_UP_FCT) / SERVOS_CH_PRD_MS)
 #define SERVOS_CH_OCR_COEF    (SERVOS_CH_OCR_1MS >> SERVOS_CH_DW_FCT)
 
-#define SERVOS_CH_CFG_EOFT      { -1, "EOFT", 0, 0 }
+#define SERVOS_CH_CFG_EOFT      { -1, "EOFT", 0, 0, 0, 0 }
 
 #define SERVO_PIN       PINL
 #define SERVO_DDR       DDRL

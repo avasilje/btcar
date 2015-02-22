@@ -33,6 +33,7 @@
 #define DBG_BUFF_MARK_OVFL      0xDD
 #define DBG_BUFF_MARK_RSP       0xD2
 #define DBG_BUFF_MARK_LOG       0xD5
+#define DBG_BUFF_MARK_LOG_D     0xD6
 #define DBG_BUFF_MARK_LOG_ISR   0xD9
 
 #define DBG_BUFF_IDX_DBGL    0
@@ -44,10 +45,10 @@ typedef struct dbg_buff_tag {
     uint8_t  uca_mem_sign[MEM_SIGN_LEN];
     uint8_t  uc_rd_idx;
     uint8_t  uc_wr_idx;
-    union {
-        uint8_t  uc_isr_wr_idx;     // Used for dbg_log buffer only
-        uint8_t  uc_tmp_wr_idx;     // Used for cmd_rsp buffer only
-    };
+    union aux_wr_idx_union{
+        uint8_t  uc_isr;     // Used for dbg_log buffer only
+        uint8_t  uc_tmp;     // Used for cmd_rsp buffer only
+    } aux_wr_idx;
     uint32_t ul_guard_s;
     uint8_t  uca_data[DBG_BUFF_LEN];
     uint32_t ul_guard_e;

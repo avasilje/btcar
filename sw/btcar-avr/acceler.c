@@ -21,10 +21,10 @@
 
 
 typedef struct accel_tag {
-    int8_t  curr_ch;
-    int8_t  tick;
+    uint8_t  curr_ch;
+    uint8_t tick;
     int16_t sampl[ACCEL_CH_NUM];
-    int8_t  adc_ref;
+    uint8_t adc_ref;
 
 } ACCEL_t;
 
@@ -162,7 +162,7 @@ ISR(ADC_vect)
         if (g_acc_dbg_en)
         {
             // write channels to out buff
-            dbg_log_isr(__LINE__, LOCAL_FILE_ID, 16, (char *)&accel);    // sizeof(accel)
+            dbg_log_isr(__LINE__, LOCAL_FILE_ID, (char *)&accel, 16);    // sizeof(accel)
         }
 
         accel.curr_ch = 0;
