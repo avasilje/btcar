@@ -238,13 +238,13 @@ process_scd(const char *scd_fn, scd_info_t *scd_info){
   return parse_scd(scd_fn, &scd_info->scd_table, &scd_info->scd_table_size); 
 }
 
-const char* scd_get_next_dtyp(const char *str_in, char **str_out)
+char* scd_get_next_dtyp(const char *str_in, size_t *str_out_len)
 {
   // D   1   1   286   "signature %(sign_struct) just digit %(uint8_t)"
   //                                ^^^^^^^^^^^               ^^^^^^^
     const char *start_pos;
 
-    *str_out = NULL;
+    *str_out_len = 0;
     while (*str_in){
         if (*str_in++ != '%'){
             continue;
@@ -266,8 +266,8 @@ const char* scd_get_next_dtyp(const char *str_in, char **str_out)
             // Data type found. Add to hash
             if (str_in != start_pos){
                 // avoid adding empty strings
-                *str_out = g_strndup(start_pos, str_in - start_pos);
-                return str_in++;
+                *str_out_len = str_in - start_pos;
+                return start_pos;
             }
 
             // bad format. Just ignore

@@ -268,7 +268,7 @@ elf_begin(int fd, Elf_Cmd cmd, Elf *ref) {
 	}
 	size = arhdr->ar_size;
     }
-    else if ((off = lseek(fd, (off_t)0, SEEK_END)) == (off_t)-1
+    else if ((off = lseek(fd, (off_t)0, SEEK_END)) == (off_t)-1         // Cause assert!
 	  || (off_t)(size = off) != off) {
 	seterr(ERROR_IO_GETSIZE);
 	return NULL;

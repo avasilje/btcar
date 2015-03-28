@@ -114,8 +114,10 @@
     <Lib>
       <AdditionalDependencies>libelf.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)$(Configuration)\</AdditionalLibraryDirectories>
-      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <TargetMachine>MachineX64</TargetMachine>
+      <Verbose>true</Verbose>
+      <IgnoreSpecificDefaultLibraries>LIBCMTD;MSVCRT;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
     </Lib>
     <ProjectReference>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>

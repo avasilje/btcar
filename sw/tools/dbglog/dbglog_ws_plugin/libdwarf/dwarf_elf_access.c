@@ -953,6 +953,7 @@ dwarf_elf_object_access_init(dwarf_elf_handle elf,
         return DW_DLV_ERROR;
     }
     memset(internals,0,sizeof(*internals));
+
     res = dwarf_elf_object_access_internals_init(internals, elf, err);
     if(res != DW_DLV_OK){
         free(internals);

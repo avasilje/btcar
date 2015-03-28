@@ -59,7 +59,7 @@ scd_get_msg_by_ids(scd_info_t *scd_info, guint32 eid, guint32 fid, guint32 lid);
 scd_entry_t*
 scd_get_by_ids(scd_info_t *scd_info, guint32 eid, guint32 fid, guint32 lid);
 
-extern const char*
-scd_get_next_dtyp(const char *str_in, char **str_out);
+extern char*
+scd_get_next_dtyp(const char *str_in, size_t *str_out_len);
 
 #endif /* __SCD_READER_H__ */

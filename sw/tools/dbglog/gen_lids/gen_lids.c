@@ -143,8 +143,11 @@ main.c-281-    );
             if (e_pos)                      // Exit if semicolon found
                 break;
 
+            line_num++;                     // Line number is line where statement ended  ";"
+
             // semicolon not found. Get next line
             s_pos = fgets(inp_line, sizeof(inp_line), stdin);
+
             if (s_pos == NULL)
                 break;
 

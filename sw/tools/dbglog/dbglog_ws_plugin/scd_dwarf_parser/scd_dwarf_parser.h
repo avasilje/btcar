@@ -13,7 +13,8 @@
 #define DIES_MEMB_FLAG_IS_LAST          1       // Indicates last sibling of child
 #define DIES_MEMB_FLAG_IS_PARENT        2       // Indicates that child present
 #define DIES_MEMB_FLAG_IS_ROOT          4       // Root of type definition
-#define DIES_MEMB_FLAG_SCD_ROOT         8       // DIES_MEMB added by SCD parser. Not processed by dwarf_parser
+#define DIES_MEMB_FLAG_IS_REFER         8       // Temporary flag - indicates that entry referenced by linked one
+#define DIES_MEMB_FLAG_SCD_ROOT        16       // DIES_MEMB added by SCD parser. Not processed by dwarf_parser
 
 typedef enum _dies_memb_type_t{
   DIES_MEMB_TYPE_STRUCT,
@@ -38,8 +39,9 @@ typedef struct _dies_memb_t {
   gint link_id;
   gint flag;
 
-  int   hf_id;              // field ID filled by WireShark on registration
   gint  ett_id;             // subtree ID filled by WireShark on registration 
+  gint  scd_hf_idx;         // Starting index of field handle for SCD entry. 
+                            // Valid for SCD die only.
    
 } dies_memb_t;
 
@@ -60,5 +62,8 @@ typedef struct _dies_pool_t {
 int dwarf2_init();
 int scd_dwarf_parse(char *scd_fn, scd_info_t **scd_info_out, GSList **dies_pools_list);
 int dwarf2_finish();
+
+void print_ids(FILE *fout, scd_entry_t *scd_entry, unsigned int ids_size);
+void dies_pool_print(FILE *fout, GSList *dies_pools_list);
 
 #endif /* _SCD_DWARF_PARSER_H_ */

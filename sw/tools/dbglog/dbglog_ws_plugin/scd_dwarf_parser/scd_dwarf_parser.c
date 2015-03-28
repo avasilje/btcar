@@ -1,8 +1,4 @@
 // TODO:
-// + cleanup last record stuff
-// + link root entry with child
-// + printout dies_pool in readable form
-// - check link for arrays
 // - fix array subrange not processed
 // - fix array entries always last???
 // - DBG unions
@@ -86,14 +82,16 @@ guint
 hash_root_die_key(gconstpointer dtype_v)
 {
     // die_memb key is it's typename
-    return g_str_hash((gconstpointer)dtype_v);
+    guint key_hash = g_str_hash((gconstpointer)dtype_v);
+    return key_hash;
 }
 
 gboolean
 hash_root_die_is_equal(gconstpointer die1_v, gconstpointer die2_v)
 {
     // die_memb key is it's typename
-    return (strcmp(die1_v, die2_v) == 0);
+    gboolean rv = (strcmp(die1_v, die2_v) == 0);
+    return rv;
 }
 
 static dies_memb_t *add_record(dies_pool_t *dies_pool)
@@ -113,7 +111,7 @@ static dies_memb_t *add_record(dies_pool_t *dies_pool)
     p->self_id = dies_pool->next_idx;
     p->link_id = -1;
     p->flag = 0;
-    p->hf_id = -1;
+//    p->hf_id = -1;
     p->ett_id = -1;
 
     DBG_PRINT1("NEW RECORD[%d]()\n", dies_pool->next_idx);
@@ -212,8 +210,10 @@ int scd_dwarf_parse(char *scd_fn, scd_info_t **scd_info_out, GSList **dies_pools
                 &(gpointer)scd_entry_key,
                 &(gpointer)scd_entry)){
 
-            char *dtype;
-            const char *scd_str;
+            char *scd_str;
+            char *scd_str_p;
+
+            size_t      dtype_len;
 
             // Add only SCD belonging to that elf
             if (scd_entry->eid != dies_pool->elf_id){
@@ -223,27 +223,27 @@ int scd_dwarf_parse(char *scd_fn, scd_info_t **scd_info_out, GSList **dies_pools
             DBG_PRINT1("-- SCD %s\n", scd_entry->str);
 
             // Loop over all data types within SCD string
-            scd_str = scd_entry->str;
-            while (scd_str = scd_get_next_dtyp(scd_str, &dtype)){
+            scd_str = g_strdup(scd_entry->str);
+            scd_str_p = scd_str;
 
+            while (scd_str_p = scd_get_next_dtyp(scd_str_p, &dtype_len)){
                 dies_memb_t *die_scd;
 
-                // Get 
-                if (dtype == NULL){
-                    continue;
+                if (dtype_len == 0){
+                    break;
                 }
 
+                scd_str_p[dtype_len] = 0;
                 // Add new DIES_SCD entry in DIEs table if not exist yet
                 die_scd = (dies_memb_t *)g_hash_table_lookup(dies_pool->dies_scd_hash,
-                                                              (gpointer)dtype);
+                                                              (gpointer)scd_str_p);
                 if (die_scd == NULL){
 
                     die_scd = add_record(dies_pool);
-                    die_scd->type_name = strdup(dtype);
+                    die_scd->type_name = g_strndup(scd_str_p, dtype_len);
                     die_scd->flag = DIES_MEMB_FLAG_SCD_ROOT;
 
                     // Add ROOT DIE to hash table for fast access during elf parsing
-                    // AV: todo: store SCD dies into dedicated hash
                     g_hash_table_insert(dies_pool->dies_scd_hash,
                                         (gpointer)die_scd->type_name,
                                         (gpointer)die_scd);
@@ -257,13 +257,21 @@ int scd_dwarf_parse(char *scd_fn, scd_info_t **scd_info_out, GSList **dies_pools
                 }
                 // Add that dies root to SCD list (aka link dies & scd tables)
                 scd_entry->dies_list = g_slist_append(scd_entry->dies_list, (gpointer)die_scd);
+
+                scd_str_p += (dtype_len + 1);
             }
+            g_free(scd_str);
         }
+
+        // Mark Last SCD dies
+        dies_pool->dies[dies_pool->next_idx - 1].flag |= DIES_MEMB_FLAG_IS_LAST;
 
         // Fillup DIEs pool with entries from particular ELF file specified in SCD
         // A DIE entry created for SCD entries where TAG = SCD_ENTRY_TAG_MSG
 
         res = process_elf(dies_pool);
+
+        // TODO: Cleanup dies_pool->dies_scd_hash as it is not used any more 
     }
 
     return RESULT_OK;
@@ -455,9 +463,10 @@ static void maybe_process_die(dies_pool_t *dies_pool, Dwarf_Die die, dies_memb_t
                 // Create, Link and Process new root if not exist yet
                 root_memb = add_record_root(dies_pool, dies_memb_scd, die);
 
-                dies_memb_scd->link_id = root_memb->self_id;
-
                 process_record(dies_pool, root_memb, die, 0);
+
+                dies_memb_scd->link_id  = root_memb->self_id;
+                dies_memb_scd->size     = root_memb->size;
 
                 *last_root = root_memb;
             }
@@ -608,6 +617,13 @@ static dies_memb_t *process_record(dies_pool_t *dies_pool, dies_memb_t *dies_mem
             dies_memb->memb_type = DIES_MEMB_TYPE_ARRAY;
             type_name = die_get_type_name(type_die);
             type_size = die_get_size(type_die);
+
+            /* Dirty string array implementation */
+            if (0 == strcmp(type_name, "char"))
+            {
+                dies_memb->display = STR_ASCII;
+                dies_memb->format = FT_STRINGZ;
+            }
 
             if (die_nof_children(die))
                 dies_memb->flag |= DIES_MEMB_FLAG_IS_PARENT;
@@ -862,7 +878,7 @@ static void record_format(dies_memb_t *rec, Dwarf_Die die)
 
     if (DW_TAG_pointer_type == tag) {
         display = BASE_HEX;
-        format = FT_UINT32;
+        format = FT_UINT32; // AV: TODO: platform dependend part. Fix required
     }
     else if (DW_TAG_enumeration_type == tag) {
         display = BASE_HEX;
@@ -1261,3 +1277,225 @@ static unsigned die_get_size(Dwarf_Die die)
     return size;
 }
 
+
+
+char *dies_memb_type_str[DIES_MEMB_TYPE_LAST] = {
+    
+    [DIES_MEMB_TYPE_STRUCT] = "S",
+    [DIES_MEMB_TYPE_ARRAY ] = "A",
+    [DIES_MEMB_TYPE_FIELD]  = " "
+};
+
+char *get_dies_memb_type_str(dies_memb_type_t  memb_type){
+    return dies_memb_type_str[memb_type];
+}
+
+char *get_dies_flag_str(gint flag, char *str){
+
+    memset(str, '-', 4);
+    str[4] = 0;
+
+    if (DIES_MEMB_FLAG_IS_LAST      & flag) {
+        str[0] = 'L';
+    }
+    if (DIES_MEMB_FLAG_IS_PARENT    & flag) {
+        str[1] = 'P';
+    }
+    if (DIES_MEMB_FLAG_IS_ROOT      & flag) {
+        str[2] = 'R';
+    }
+    if (DIES_MEMB_FLAG_SCD_ROOT     & flag) {
+        str[3] = 'S';
+    }
+
+    return str;    
+}
+static char* format2str(ftenum_t format)
+{
+    static char *ftenum_str[FT_NUM_TYPES] = {
+        [FT_NONE         ] = "FT_NONE         ",      /* used for text labels with no value */
+        [FT_PROTOCOL     ] = "FT_PROTOCOL     ",
+        [FT_BOOLEAN      ] = "FT_BOOLEAN      ",      /* TRUE and FALSE come from <glib.h> */
+        [FT_UINT8        ] = "FT_UINT8        ",
+        [FT_UINT16       ] = "FT_UINT16       ",
+        [FT_UINT24       ] = "FT_UINT24       ",      /* really a UINT32 but displayed as 3 hex-digits if FD_HEX*/
+        [FT_UINT32       ] = "FT_UINT32       ",
+        [FT_UINT64       ] = "FT_UINT64       ",
+        [FT_INT8         ] = "FT_INT8         ",
+        [FT_INT16        ] = "FT_INT16        ",
+        [FT_INT24        ] = "FT_INT24        ",      /* same as for UINT24 */
+        [FT_INT32        ] = "FT_INT32        ",
+        [FT_INT64        ] = "FT_INT64        ",
+        [FT_FLOAT        ] = "FT_FLOAT        ",
+        [FT_DOUBLE       ] = "FT_DOUBLE       ",
+        [FT_ABSOLUTE_TIME] = "FT_ABSOLUTE_TIME",
+        [FT_RELATIVE_TIME] = "FT_RELATIVE_TIME",
+        [FT_STRING       ] = "FT_STRING       ",
+        [FT_STRINGZ      ] = "FT_STRINGZ      ",      /* for use with proto_tree_add_item() */
+        [FT_UINT_STRING  ] = "FT_UINT_STRING  ",      /* for use with proto_tree_add_item() */
+        [FT_ETHER        ] = "FT_ETHER        ",
+        [FT_BYTES        ] = "FT_BYTES        ",
+        [FT_UINT_BYTES   ] = "FT_UINT_BYTES   ",
+        [FT_IPv4         ] = "FT_IPv4         ",
+        [FT_IPv6         ] = "FT_IPv6         ",
+        [FT_IPXNET       ] = "FT_IPXNET       ",
+        [FT_FRAMENUM     ] = "FT_FRAMENUM     ",      /* a UINT32 but if selected lets you go to frame with that number */
+        [FT_PCRE         ] = "FT_PCRE         ",      /* a compiled Perl-Compatible Regular Expression object */
+        [FT_GUID         ] = "FT_GUID         ",      /* GUID UUID */
+        [FT_OID          ] = "FT_OID          ",      /* OBJECT IDENTIFIER */
+        [FT_EUI64        ] = "FT_EUI64        ",
+        [FT_AX25         ] = "FT_AX25         ",
+        [FT_VINES        ] = "FT_VINES        ",
+        [FT_REL_OID      ] = "FT_REL_OID      ",
+        [FT_SYSTEM_ID    ] = "FT_SYSTEM_ID    ",
+        [FT_STRINGZPAD   ] = "FT_STRINGZPAD   ",
+        [FT_FCWWN        ] = "FT_FCWWN        ",
+  };
+
+    return ftenum_str[format];
+}
+
+static char* display2str(field_display_e disp)
+{
+    static char *display_str[] =  {
+      [BASE_NONE   ] = "BASE_NONE   ",    /**< none */
+      [BASE_DEC    ] = "BASE_DEC    ",    /**< decimal */
+      [BASE_HEX    ] = "BASE_HEX    ",    /**< hexadecimal */
+      [BASE_OCT    ] = "BASE_OCT    ",    /**< octal */
+      [BASE_DEC_HEX] = "BASE_DEC_HEX",    /**< decimal (hexadecimal) */
+      [BASE_HEX_DEC] = "BASE_HEX_DEC",    /**< hexadecimal (decimal) */
+      [BASE_CUSTOM ] = "BASE_CUSTOM "     /**< call custom routine (in ->strings) to format */
+    };
+
+    return display_str[disp];
+}
+static void dies_print(FILE *fout, dies_memb_t *dies_memb, int cur_level)
+{
+#define MAX_INDENT    (10 * 4)
+    static char flag_str[5];
+    static char indent_str[MAX_INDENT+1] = {0};
+    static char data_name[256] = {0};
+
+    if (dies_memb == NULL && cur_level == 0) {
+        // Print header
+        fprintf(fout, "\n");
+        fprintf(fout, "\n");
+        fprintf(fout, "\n");
+        fprintf(fout, "Dies members:\n");
+        fprintf(fout, "Type: (S)truct, (A)array;     Flags: (L)ast, (P)arent, (R)oot, (S)SCD entry\n");
+        fprintf(fout, "=================================================================================================================================================\n");
+        fprintf(fout, " %-3s | %-3s | %-1s | %-40s | %-4s | %-4s | %-s | %-16s | %-12s |\n",
+                      "ID", "Lnk", "T", "Data type", "Offs", "Size", "Flag", "Format", "Display");
+        fprintf(fout, "=================================================================================================================================================\n");
+        return;
+    }
+    else if (dies_memb == NULL && cur_level == -1) {
+        // Print footer
+        fprintf(fout, "=================================================================================================================================================\n");
+        return;
+    }
+
+
+    if (!indent_str[0]){
+        memset(indent_str, ' ', MAX_INDENT);
+        indent_str[MAX_INDENT] = 0;
+    }
+
+    indent_str[cur_level * 4] = '\0';
+    sprintf(data_name, "%s %s %s", 
+        indent_str,
+        dies_memb->type_name,
+        dies_memb->field_name);
+
+//                 ID    | LinkID
+//                       |      | DieType   
+//                       |      |     |  Level Indent, Data Type & Name          
+//                       |      |     |       | Offset  
+//                       |      |     |       |     | Size     
+//                       |      |     |       |     |     | Flag
+//                       |      |     |       |     |     |     | Format
+//                       |      |     |       |     |     |     |      | Display
+    fprintf(fout, " %-3d | %-3d | %1s | %-40s | %4d | %4d | %4s | %16s | %12s | \n",
+        dies_memb->self_id,
+        dies_memb->link_id,
+        get_dies_memb_type_str(dies_memb->memb_type),
+        data_name,
+        dies_memb->offset,
+        dies_memb->size,
+        get_dies_flag_str(dies_memb->flag, flag_str),
+
+        format2str(dies_memb->format),
+        display2str(dies_memb->display)
+    );
+
+    indent_str[cur_level * 4] = ' ';
+}
+
+static dies_memb_t* dies_print_lvl(FILE *fout, dies_memb_t *dies_memb, int cur_level, int max_idx)
+{
+    /* sanity check here */
+
+    do {
+        gint flag;
+
+        if (dies_memb->self_id == max_idx - 1){
+            fprintf(fout, "ERROR\n");
+            return dies_memb;
+        }
+
+        flag = dies_memb->flag;
+
+        dies_print(fout, dies_memb, cur_level);
+
+        dies_memb ++;
+
+        // Print child
+        if (flag & DIES_MEMB_FLAG_IS_PARENT) {
+            dies_memb = dies_print_lvl(fout, dies_memb, cur_level+1, max_idx);
+        } 
+
+        if (flag & DIES_MEMB_FLAG_IS_LAST) {
+            return dies_memb;
+        } 
+
+    } while (1);
+
+    fprintf(fout, "ERROR\n");
+
+    return NULL;
+}
+
+void dies_pool_print(FILE *fout, GSList *dies_pools_list)
+{
+    GSList *list_entry;
+    list_entry = g_slist_nth(dies_pools_list, 0);
+    while (list_entry){
+        dies_pool_t *dies_pool;
+
+        dies_pool = g_slist_nth_data(list_entry, 0);
+        if (dies_pool->size > 0) {
+            dies_memb_t *die;
+            dies_print(fout, NULL, 0);
+            die = dies_print_lvl(fout, &dies_pool->dies[0], 0, dies_pool->next_idx);  // SCD root entries
+            dies_print_lvl(fout, die, 0, dies_pool->next_idx);
+
+            dies_print(fout, NULL, -1);
+        }
+        list_entry = g_slist_next(list_entry);
+    }
+}
+
+void print_ids(FILE *fout, scd_entry_t *scd_entry, unsigned int ids_size)
+{
+  unsigned int i;
+  fprintf(fout, "IDS:\n");
+  for (i = 0; i < ids_size; ++i) {
+    fprintf(fout, "{ %2d, %2d, %4d, %-60s %p }\n", 
+        scd_entry[i].eid,
+        scd_entry[i].fid,
+        scd_entry[i].lid,
+        scd_entry[i].str,
+        scd_entry[i].data);
+  };
+
+}
