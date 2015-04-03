@@ -101,7 +101,7 @@
     <OutDir>$(SolutionDir)</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>..\..\..\..\Wireshark-win64-libs\gtk2\include\glib-2.0;..\..\..\..\Wireshark-win64-libs\gtk2\lib\glib-2.0\include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include</IncludePath>
+    <IncludePath>$(WIRESHARK_BASE_DIR)\Wireshark-win64-libs\gtk2\include\glib-2.0;$(WIRESHARK_BASE_DIR)\Wireshark-win64-libs\gtk2\lib\glib-2.0\include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include</IncludePath>
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
     <IntDir>$(Configuration)\</IntDir>
   </PropertyGroup>
@@ -167,7 +167,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\..\..\;..\scd_reader;..\libdwarf</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(WIRESHARK_BASE_DIR)\wireshark;..\scd_reader;..\libdwarf</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>G_DISABLE_DEPRECATED;G_DISABLE_SINGLE_INCLUDES;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;BUILD_WINDOWS;WIN32_LEAN_AND_MEAN;MSC_VER_REQUIRED=1800;WIRESHARK_ENV</PreprocessorDefinitions>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>

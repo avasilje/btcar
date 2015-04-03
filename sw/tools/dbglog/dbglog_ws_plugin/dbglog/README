@@ -1,0 +1,6 @@
+DBGLOG is the dissector that parses log messages using DWARF2 data format definitions.
+
+The authors are:
+    Andrejs Vasiljevs  <Andrejs.Vasiljevs@lantiq.com>
+
+

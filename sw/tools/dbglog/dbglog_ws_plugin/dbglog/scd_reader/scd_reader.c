@@ -26,6 +26,16 @@ scd_entry_ids_is_equal(gconstpointer scd_entry1_v, gconstpointer scd_entry2_v){
 }
 
 gboolean
+scd_entry_fid_is_equal(gconstpointer scd_entry1_v, gconstpointer scd_entry2_v){
+
+  const scd_entry_t *scd_entry1 = (scd_entry_t *)scd_entry1_v;
+  const scd_entry_t *scd_entry2 = (scd_entry_t *)scd_entry2_v;
+
+  return ((scd_entry1->fid == scd_entry2->fid) && 
+          (scd_entry1->eid == scd_entry2->eid));
+}
+
+gboolean
 scd_entry_eid_is_equal(gconstpointer scd_entry1_v, gconstpointer scd_entry2_v){
 
   const scd_entry_t *scd_entry1 = (scd_entry_t *)scd_entry1_v;
@@ -34,37 +44,6 @@ scd_entry_eid_is_equal(gconstpointer scd_entry1_v, gconstpointer scd_entry2_v){
   return (scd_entry1->eid == scd_entry2->eid);
 }
 
-gboolean
-scd_entry_fid_is_equal(gconstpointer scd_entry1_v, gconstpointer scd_entry2_v){
-
-  const scd_entry_t *scd_entry1 = (scd_entry_t *)scd_entry1_v;
-  const scd_entry_t *scd_entry2 = (scd_entry_t *)scd_entry2_v;
-
-  return (scd_entry1->fid == scd_entry2->fid);
-}
-
-gboolean
-scd_evt_tag_oid_is_equal(gconstpointer scd_evt1_v, gconstpointer scd_evt2_v){
-
-  //const scd_evt_t *scd_evt1 = (scd_evt_t *)scd_evt1_v;
-  //const scd_evt_t *scd_evt2 = (scd_evt_t *)scd_evt2_v;
-
-  //return ((scd_evt1->tag == scd_evt2->tag) && 
-  //        (scd_evt1->oid == scd_evt2->oid));
-
-  return 0;
-}
-
-guint 
-scd_evt_hash_tag_oid_key(gconstpointer scd_evt_v){
-
-  const scd_entry_t *scd_entry = (scd_entry_t *)scd_evt_v;
-
-  //return (scd_evt->tag << 16) +
-  //       (scd_evt->oid <<  0);
-
-  return 0;
-}
 
 guint 
 scd_entry_hash_ids_key(gconstpointer scd_entry_v){
@@ -80,20 +59,25 @@ scd_entry_hash_ids_key(gconstpointer scd_entry_v){
          (scd_entry->lid <<  0);
 }
 
+
+guint 
+scd_entry_hash_fid_key(gconstpointer scd_entry_v){
+
+  const scd_entry_t *scd_entry = (scd_entry_t *)scd_entry_v;
+  // eid   0    0    0         -- ELF file ID
+  // fid  fid   0    0         -- File ID
+
+  return (scd_entry->eid << 24) +
+         (scd_entry->fid << 16);
+
+ }
+
 guint 
 scd_entry_hash_elf_key(gconstpointer scd_entry_v){
 
   const scd_entry_t *scd_entry = (scd_entry_t *)scd_entry_v;
 
   return scd_entry->eid;
-}
-
-guint 
-scd_entry_hash_fid_key(gconstpointer scd_entry_v){
-
-  const scd_entry_t *scd_entry = (scd_entry_t *)scd_entry_v;
-
-  return scd_entry->fid;
 }
 
 gboolean
@@ -106,7 +90,7 @@ scd_entry_is_equal(gconstpointer scd_entry1_v, gconstpointer scd_entry2_v){
 }
 
 scd_info_t* 
-scd_init(guint32 hash_flags){
+scd_init(void){
 
   scd_info_t  *scd_info;
 
@@ -131,6 +115,33 @@ scd_init(guint32 hash_flags){
 
   return scd_info;
 }
+
+void 
+scd_free(scd_info_t *scd_info)
+{
+
+    guint i;
+
+    /* Free SCD table */
+    for (i = 0; i < scd_info->scd_table_size; i++){
+        scd_entry_t *scd_entry = &scd_info->scd_table[i];
+
+        if (scd_entry->str)
+            g_free((gpointer)scd_entry->str);
+
+        if (scd_entry->dies_list);
+            g_slist_free(scd_entry->dies_list);
+    }
+
+    g_free(scd_info->scd_table);
+    scd_info->scd_table_size = 0;
+
+
+    /* Finally */
+    g_free(scd_info);
+
+}
+
 
 static gint 
 parse_scd(const char *scd_fn, scd_entry_t **scd_table, guint *scd_table_size){
@@ -174,46 +185,39 @@ parse_scd(const char *scd_fn, scd_entry_t **scd_table, guint *scd_table_size){
     tag = line[0];
     scd_entry = &(tbl)[i++];
 
+    memset(scd_entry, 0, sizeof(*scd_entry));
+
     switch (tag){
-
       case SCD_ENTRY_TAG_ELF:
-          sscanf(s, "%d %[^\n]s", &scd_entry->eid, buf);
-          scd_entry->str = g_strdup(buf);
-
-          scd_entry->fid = 0;
-          scd_entry->lid = 0;
-          scd_entry->tag = tag;
-          scd_entry->data = NULL;
-          scd_entry->dies_list = NULL;
+          if (2 != sscanf(s, "%d %[^\n]s", &scd_entry->eid, buf)) {
+            scd_entry->status = -1;
+          }
           break;
 
       case SCD_ENTRY_TAG_FID:
-
-          sscanf(s, "%d %[^\n]s", &scd_entry->fid, buf);
-          scd_entry->str = g_strdup(buf);
-
-          scd_entry->eid = 0;
-          scd_entry->lid = 0;
-          scd_entry->tag = tag;
-          scd_entry->data = NULL;
-          scd_entry->dies_list = NULL;
+          if (3 != sscanf(s, "%d %d %[^\n]s", &scd_entry->eid, &scd_entry->fid, buf)) {
+            scd_entry->status = -1;
+          }
           break;
 
       case SCD_ENTRY_TAG_MSG:
-
-          sscanf(s, "%d %d %d %[^\n]s", &scd_entry->eid, &scd_entry->fid, &scd_entry->lid, buf);
-          scd_entry->str = g_strdup(buf);
-
-          scd_entry->tag = tag;
-          scd_entry->data = NULL;
-          scd_entry->dies_list = NULL;
+          if (4 != sscanf(s, "%d %d %d \"%[^\"\n]s", &scd_entry->eid, &scd_entry->fid, &scd_entry->lid, buf)) {
+            scd_entry->status = -1;
+          }
           break;
 
       default:
+          scd_entry->status = -1;
           break;
     }
 
-  }
+    if (0 == scd_entry->status) {
+      scd_entry->str = g_strdup(buf);
+      scd_entry->tag = tag;
+    }
+
+
+  } /* End of scd lines while */
 
 FINISH:
 
@@ -229,7 +233,7 @@ FINISH:
 }
 
 gint 
-process_scd(const char *scd_fn, scd_info_t *scd_info){
+scd_process(const char *scd_fn, scd_info_t *scd_info){
 
   if (scd_info->scd_proc_closed_flag)   
     return RESULT_FAIL;       /* SCD table already hashed and can't be reallocated 
@@ -267,7 +271,7 @@ char* scd_get_next_dtyp(const char *str_in, size_t *str_out_len)
             if (str_in != start_pos){
                 // avoid adding empty strings
                 *str_out_len = str_in - start_pos;
-                return start_pos;
+                return (char *)start_pos;
             }
 
             // bad format. Just ignore
@@ -347,11 +351,12 @@ scd_get_elfname(scd_info_t *scd_info, guint32 eid){
 }
 
 const char*
-scd_get_fidname(scd_info_t *scd_info, guint32 fid){
+scd_get_fidname(scd_info_t *scd_info, guint32 eid, guint32 fid){
 
   scd_entry_t  scd_entry_key;
   scd_entry_t  *scd_entry;
   
+  scd_entry_key.eid = eid;
   scd_entry_key.fid = fid;  // Other fields are not used and left uninitialized
 
   scd_entry = (scd_entry_t*)g_hash_table_lookup(scd_info->fid_hash, &scd_entry_key);
@@ -384,15 +389,5 @@ scd_get_msg_by_ids(scd_info_t *scd_info, guint32 eid, guint32 fid, guint32 lid){
   scd_entry = scd_get_by_ids(scd_info, eid, fid, lid);
   
   if (scd_entry) return scd_entry->str;
-  else return NULL;
-}
-
-void*
-scd_get_data_by_ids(scd_info_t *scd_info, guint32 eid, guint32 fid, guint32 lid){
-  scd_entry_t  *scd_entry;
-    
-  scd_entry = scd_get_by_ids(scd_info, eid, fid, lid);
-  
-  if (scd_entry) return scd_entry->data;
   else return NULL;
 }

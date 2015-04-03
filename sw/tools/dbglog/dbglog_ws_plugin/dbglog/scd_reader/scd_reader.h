@@ -3,22 +3,18 @@
 
 #define SCD_LINE_SIZE 1024
 
-#define SCD_HASH_FLAGS_MSG      0x08        // AV: TODO: Is in use ???
-#define SCD_HASH_FLAGS_ELF      0x10
-
 #define SCD_ENTRY_TAG_ELF    'E'      // Tag that defines ELF file
 #define SCD_ENTRY_TAG_FID    'F'      // Tag that defines files IDs
 #define SCD_ENTRY_TAG_MSG    'D'      // Tag that defines Messages ID (ELF ID, File ID, Line ID)
 
-
 typedef struct _scd_entry_t {
-  char          tag;
+  char          tag;                  // Memb of  SCD_ENTRY_TAG_xxx
   int           eid;
   int           fid;
   int           lid;
   const char    *str;
-  void          *data;
   GSList        *dies_list;         // List of root entries in DIEs table for this SCD's data types. DIEs are always linked.
+  int           status;
 } scd_entry_t;
 
 typedef struct _scd_info_t {
@@ -36,10 +32,13 @@ typedef struct _scd_info_t {
 
 
 extern scd_info_t* 
-scd_init(guint32 hash_flags);
+scd_init(void);
+
+extern void 
+scd_free(scd_info_t *scd_info);
 
 extern gint 
-process_scd(const char *scd_fn, scd_info_t *scd_info);
+scd_process(const char *scd_fn, scd_info_t *scd_info);
 
 extern void
 scd_process_finish(scd_info_t *scd_info);
@@ -48,7 +47,7 @@ extern const char*
 scd_get_elfname(scd_info_t *scd_info, guint32 eid);
 
 extern const char*
-scd_get_fidname(scd_info_t *scd_info, guint32 fid);
+scd_get_fidname(scd_info_t *scd_info, guint32 eid, guint32 fid);
 
 extern void*
 scd_get_data_by_ids(scd_info_t *scd_info, guint32 eid, guint32 fid, guint32 lid);

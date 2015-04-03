@@ -55,7 +55,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>..\..\..\..\Wireshark-win64-libs\gtk2\include\glib-2.0;..\..\..\..\Wireshark-win64-libs\gtk2\lib\glib-2.0\include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include</IncludePath>
+    <IncludePath>$(WIRESHARK_BASE_DIR)\Wireshark-win64-libs\gtk2\include\glib-2.0;$(WIRESHARK_BASE_DIR)\Wireshark-win64-libs\gtk2\lib\glib-2.0\include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include</IncludePath>
     <OutDir>$(SolutionDir)</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -66,7 +66,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
     <IntDir>$(Configuration)\</IntDir>
-    <IncludePath>..\..\..\..\Wireshark-win64-libs\gtk2\include\glib-2.0;..\..\..\..\Wireshark-win64-libs\gtk2\lib\glib-2.0\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <IncludePath>$(WIRESHARK_BASE_DIR)\Wireshark-win64-libs\gtk2\include\glib-2.0;$(WIRESHARK_BASE_DIR)\Wireshark-win64-libs\gtk2\lib\glib-2.0\include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include</IncludePath>
     <RunCodeAnalysis>true</RunCodeAnalysis>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

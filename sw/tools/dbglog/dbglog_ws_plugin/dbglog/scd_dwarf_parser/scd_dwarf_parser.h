@@ -60,10 +60,12 @@ typedef struct _dies_pool_t {
 #define RESULT_FAIL 1
 
 int dwarf2_init();
-int scd_dwarf_parse(char *scd_fn, scd_info_t **scd_info_out, GSList **dies_pools_list);
 int dwarf2_finish();
 
+int scd_dwarf_parse(char *scd_fn, scd_info_t **scd_info_out, GHashTable **dies_pools_hash);
+void scd_dwarf_free(scd_info_t *scd_info);
+
 void print_ids(FILE *fout, scd_entry_t *scd_entry, unsigned int ids_size);
-void dies_pool_print(FILE *fout, GSList *dies_pools_list);
+void dies_pool_print(FILE *fout, GHashTable *dies_pools_hash);
 
 #endif /* _SCD_DWARF_PARSER_H_ */

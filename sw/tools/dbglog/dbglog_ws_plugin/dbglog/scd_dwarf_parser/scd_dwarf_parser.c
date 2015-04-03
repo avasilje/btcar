@@ -5,7 +5,6 @@
 // - DBG enums
 // - rework dynamic strings to static
 // - cleanup string free
-// - Reformat debug printout
 // - legalize program traps
 
 #include <stdlib.h>
@@ -111,7 +110,7 @@ static dies_memb_t *add_record(dies_pool_t *dies_pool)
     p->self_id = dies_pool->next_idx;
     p->link_id = -1;
     p->flag = 0;
-//    p->hf_id = -1;
+
     p->ett_id = -1;
 
     DBG_PRINT1("NEW RECORD[%d]()\n", dies_pool->next_idx);
@@ -162,7 +161,13 @@ int dwarf2_init()
     return res;
 }
 
-int scd_dwarf_parse(char *scd_fn, scd_info_t **scd_info_out, GSList **dies_pools_list)
+void scd_dwarf_free(scd_info_t *scd_info)
+{
+    scd_free(scd_info);
+}
+
+
+int scd_dwarf_parse(char *scd_fn, scd_info_t **scd_info_out, GHashTable **dies_pools_hash)
 {
     int   res;
 
@@ -174,19 +179,22 @@ int scd_dwarf_parse(char *scd_fn, scd_info_t **scd_info_out, GSList **dies_pools
 
     res = RESULT_OK;
 
-    scd_info = scd_init(SCD_HASH_FLAGS_ELF | SCD_HASH_FLAGS_MSG);
+    scd_info = scd_init();
 
     if (scd_info == NULL)
         return RESULT_FAIL;
 
     *scd_info_out = scd_info;
 
-    res = process_scd(scd_fn, scd_info);
+    res = scd_process(scd_fn, scd_info);
 
     scd_process_finish(scd_info);
 
     // Fill up DIES pools list by  processing all ELF files specified in SCD. 
-    *dies_pools_list = NULL;
+    if (*dies_pools_hash != NULL) 
+        return RESULT_FAIL;
+
+    *dies_pools_hash = g_hash_table_new(g_int_hash, g_int_equal);
     g_hash_table_iter_init(&iter_elf, scd_info->elf_hash);
     while (g_hash_table_iter_next(&iter_elf, &(gpointer)scd_entry_key, &(gpointer)scd_entry)){
         dies_pool_t *dies_pool;
@@ -201,7 +209,7 @@ int scd_dwarf_parse(char *scd_fn, scd_info_t **scd_info_out, GSList **dies_pools
         dies_pool->dies_hash     = g_hash_table_new(hash_root_die_key, hash_root_die_is_equal);     // 
         dies_pool->dies_scd_hash = g_hash_table_new(hash_root_die_key, hash_root_die_is_equal);     // Entry point from SCD. Alway linked with root or parent.
 
-        *dies_pools_list = g_slist_append(*dies_pools_list, (gpointer)dies_pool);
+        g_hash_table_insert(*dies_pools_hash, (gpointer)&scd_entry->eid, (gpointer)dies_pool);
 
         // Copy all DIEs roots from scd_table to dies_pool and link them together.
         // Loop over all SCD MSG entries
@@ -256,7 +264,7 @@ int scd_dwarf_parse(char *scd_fn, scd_info_t **scd_info_out, GSList **dies_pools
                     DBG_PRINT1("---- Duplicated type name %s\n", die_root->type_name);
                 }
                 // Add that dies root to SCD list (aka link dies & scd tables)
-                scd_entry->dies_list = g_slist_append(scd_entry->dies_list, (gpointer)die_scd);
+                scd_entry->dies_list = g_slist_append(scd_entry->dies_list, (gpointer)die_scd->self_id);
 
                 scd_str_p += (dtype_len + 1);
             }
@@ -279,12 +287,11 @@ int scd_dwarf_parse(char *scd_fn, scd_info_t **scd_info_out, GSList **dies_pools
 
 int dwarf2_finish()
 {
-//    unsigned i;
     int res = RESULT_OK;
 
-    /* TODO: call scd_finish() */
     // AV: dbl chk. iterrate by pool list
     /* 
+    unsigned i;
     for (i = 0; i < s_dies_size; ++i) {
         dies_memb_t *p = &s_dies[i];
         if (p->type_name != NULL) free(p->type_name);
@@ -1465,37 +1472,57 @@ static dies_memb_t* dies_print_lvl(FILE *fout, dies_memb_t *dies_memb, int cur_l
     return NULL;
 }
 
-void dies_pool_print(FILE *fout, GSList *dies_pools_list)
+void dies_pool_print(FILE *fout, GHashTable *dies_pools_hash)
 {
-    GSList *list_entry;
-    list_entry = g_slist_nth(dies_pools_list, 0);
-    while (list_entry){
-        dies_pool_t *dies_pool;
+  dies_pool_t *dies_pool;
+  GHashTableIter iter;
 
-        dies_pool = g_slist_nth_data(list_entry, 0);
-        if (dies_pool->size > 0) {
-            dies_memb_t *die;
-            dies_print(fout, NULL, 0);
-            die = dies_print_lvl(fout, &dies_pool->dies[0], 0, dies_pool->next_idx);  // SCD root entries
-            dies_print_lvl(fout, die, 0, dies_pool->next_idx);
+  g_hash_table_iter_init(&iter, dies_pools_hash);
+  while (g_hash_table_iter_next(&iter, NULL, (gpointer *)&dies_pool))
+  {
+    dies_memb_t *die;
 
-            dies_print(fout, NULL, -1);
-        }
-        list_entry = g_slist_next(list_entry);
+    if (dies_pool->size == 0){
+      continue;
     }
+
+    dies_print(fout, NULL, 0);
+    die = dies_print_lvl(fout, &dies_pool->dies[0], 0, dies_pool->next_idx);  // SCD root entries
+    dies_print_lvl(fout, die, 0, dies_pool->next_idx);
+
+    dies_print(fout, NULL, -1);
+
+  }
+
+
 }
 
-void print_ids(FILE *fout, scd_entry_t *scd_entry, unsigned int ids_size)
+void print_dies_list(gpointer data, gpointer stream){
+    fprintf((FILE *)stream, "%-4d", (int)data);
+}
+
+void print_ids(FILE *fout, scd_entry_t *scd_tbl, unsigned int ids_size)
 {
   unsigned int i;
+
   fprintf(fout, "IDS:\n");
   for (i = 0; i < ids_size; ++i) {
-    fprintf(fout, "{ %2d, %2d, %4d, %-60s %p }\n", 
-        scd_entry[i].eid,
-        scd_entry[i].fid,
-        scd_entry[i].lid,
-        scd_entry[i].str,
-        scd_entry[i].data);
+    scd_entry_t *scd_entry;
+
+    scd_entry = &scd_tbl[i];
+    fprintf(fout, "{ %2d, %2d, %4d, %-60s ", 
+        scd_entry->eid,
+        scd_entry->fid,
+        scd_entry->lid,
+        scd_entry->str);
+
+    if (scd_entry->tag == SCD_ENTRY_TAG_MSG) {
+        fprintf(fout, "Dies: ");
+        g_slist_foreach(scd_entry->dies_list, print_dies_list, (gpointer)fout);
+    }
+
+    fprintf(fout, "}\n");
+
   };
 
 }

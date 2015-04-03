@@ -1,0 +1,8 @@
+E   1   C:\MyWorks\BTCar\sw\tools\dbglog\ref_target\ref_target.elf 
+F   1   2   dbg_log.c
+F   1   1   main.c
+D   1   1   149   "Just note"
+D   1   1   154   "Just note 1st lineJust note 2nd line"
+D   1   1   157   "signature %(sign_struct)"
+D   1   1   161   "signature %(sign_struct) just digit %(uint8_t)"
+

@@ -18,7 +18,7 @@ int main(int argc, char* argv[])
     int res;
     dies_memb_t *dies;
     unsigned dies_size;
-    GSList *dies_pools_list;
+    GHashTable *dies_pools_hash;
 
     char* scd_fn = NULL;
     if (argc < 2)
@@ -36,10 +36,11 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     };
 
+    dies_pools_hash = NULL;
     res = scd_dwarf_parse(
         scd_fn, 
         &scd_info, 
-        &dies_pools_list);
+        &dies_pools_hash);
 
 
     if (res != RESULT_OK) {
@@ -49,7 +50,9 @@ int main(int argc, char* argv[])
     print_ids(stdout, scd_info->scd_table, scd_info->scd_table_size);
 
     /* Printout DIEs pool */
-    dies_pool_print(stdout, dies_pools_list);
+    dies_pool_print(stdout, dies_pools_hash);
+
+    scd_dwarf_free(scd_info);
 
     return EXIT_SUCCESS;
 }
