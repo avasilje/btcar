@@ -17,8 +17,11 @@
 #define DIES_MEMB_FLAG_SCD_ROOT        16       // DIES_MEMB added by SCD parser. Not processed by dwarf_parser
 
 typedef enum _dies_memb_type_t{
+  DIES_MEMB_TYPE_TYPEDEF,
+  DIES_MEMB_TYPE_ENUM,
   DIES_MEMB_TYPE_STRUCT,
   DIES_MEMB_TYPE_ARRAY,
+  DIES_MEMB_TYPE_POINTER,
   DIES_MEMB_TYPE_FIELD,
   DIES_MEMB_TYPE_LAST
 } dies_memb_type_t;
@@ -32,7 +35,7 @@ typedef struct _dies_memb_t {
   guint32           size;
   
   ftenum_t          format;
-  field_display_e    display;
+  field_display_e   display;
   value_string      *strings;      
   
   gint self_id;

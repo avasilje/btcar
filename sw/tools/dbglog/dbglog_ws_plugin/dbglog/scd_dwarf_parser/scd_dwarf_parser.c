@@ -1,8 +1,4 @@
 // TODO:
-// - fix array subrange not processed
-// - fix array entries always last???
-// - DBG unions
-// - DBG enums
 // - rework dynamic strings to static
 // - cleanup string free
 // - legalize program traps
@@ -12,8 +8,8 @@
 #include <string.h>
 #include <fcntl.h>     
 
-#include <dwarf.h>
-#include <libdwarf.h>
+#include <libdwarf\dwarf.h>
+#include <libdwarf\libdwarf.h>
 
 #include <glib.h>
 #include "scd_reader.h"
@@ -40,14 +36,8 @@
 #define DBG_PRINT5(a,b,c,d,e,f)
 #endif
 
-#define FORMAT_TYPE(s,f) { char *p; p = strdup(s); sprintf(s,f,p); free(p); }
-#define FORMAT_TYPE2(s,t,f) { char *p; p = strdup(s); sprintf(s,f,t,p); free(p); }
-#define FORMAT_TYPE2_REV(s,t,f) { char *p; p = strdup(s); sprintf(s,f,p,t); free(p); }
-
 #define DIE_SIZE_INIT (1024*4)
 #define DIE_SIZE_STEP (1024*4)
-
-int is_info = 1;
 
 static int process_elf(dies_pool_t *dies_pool);
 
@@ -56,7 +46,7 @@ static void process_siblings (dies_pool_t *dies_pool, Dwarf_Die die, dies_memb_t
 static void maybe_process_die(dies_pool_t *dies_pool, Dwarf_Die die, dies_memb_t **last_root);
 
 static dies_memb_t *process_record(dies_pool_t *dies_pool, dies_memb_t *dies_memb, Dwarf_Die die,  Dwarf_Half parent_tag);
-static dies_memb_t *process_children(dies_pool_t *dies_pool, Dwarf_Die die);
+static dies_memb_t *process_children(dies_pool_t *dies_pool, dies_memb_t *dies_memb, Dwarf_Die die);
 static int die_nof_children(Dwarf_Die die);
 static Dwarf_Die typedef_to_type(Dwarf_Die die);
 static void record_format(dies_memb_t *rec, Dwarf_Die die);
@@ -65,8 +55,8 @@ static unsigned process_subrange(Dwarf_Die die);
 static void dies_check_memory();
 
 static char* die_get_name(Dwarf_Die die);
-static char* die_get_type_name(Dwarf_Die die);
-static void die_get_type_name_(Dwarf_Die die, char *res);
+static char* die_get_type_name(Dwarf_Die die, gchar *res);
+
 static Dwarf_Half die_get_tag(Dwarf_Die die);
 static unsigned die_attr_size(Dwarf_Die die);
 static Dwarf_Die die_get_type(Dwarf_Die die);
@@ -76,6 +66,56 @@ static int die_attr_const_value(Dwarf_Die die);
 
 static Dwarf_Debug   s_dbg;
 static int           s_enum_index = -1;
+
+int is_info = 1;
+
+gchar *
+g_strprepend(gchar *dst, const gchar *prefix_format, ...) 
+{
+    gchar *res;
+    gchar *prefix;
+    va_list  va_args;
+
+    va_start(va_args, prefix_format);
+
+    prefix = g_strdup_vprintf(prefix_format, va_args);
+    if (dst) {
+        res = g_strdup_printf("%s%s", prefix, dst);
+        g_free(dst);
+        g_free(prefix);
+    }
+    else{
+        res = prefix;
+    }
+
+    va_end(va_args);
+
+    return res;
+}
+
+gchar *
+g_strappend(gchar *dst, const gchar *sufix_format, ...) 
+{
+    gchar *res;
+    gchar *sufix;
+    va_list  va_args;
+
+    va_start(va_args, sufix_format);
+
+    sufix = g_strdup_vprintf(sufix_format, va_args);
+    if (dst) {
+        res = g_strdup_printf("%s%s", dst, sufix);
+        g_free(dst);
+        g_free(sufix);
+    }
+    else{
+        res = sufix;
+    }
+
+    va_end(va_args);
+
+    return res;
+}
 
 guint
 hash_root_die_key(gconstpointer dtype_v)
@@ -120,39 +160,6 @@ static dies_memb_t *add_record(dies_pool_t *dies_pool)
     dies_pool->next_idx += 1;
 
     return &dies_pool->dies[dies_pool->next_idx - 1];
-}
-
-static dies_memb_t *add_record_root (dies_pool_t *dies_pool, dies_memb_t *dies_memb_scd, Dwarf_Die die)
-{
-    dies_memb_t *root_memb;
-
-    DBG_PRINT1("PROCESS RECORD(%s)\n", dies_memb_scd->type_name ? dies_memb_scd->type_name : "");
-
-    root_memb = add_record(dies_pool);
-    if (!root_memb){
-        return NULL;
-    }
-
-    root_memb->memb_type  = DIES_MEMB_TYPE_STRUCT;
-    root_memb->field_name = strdup("");     // Root entry do not have a name, only type
-    root_memb->type_name  = strdup(dies_memb_scd->type_name);
-    root_memb->offset     = 0;
-    root_memb->size       = die_get_size(die);
-    root_memb->display    = dies_memb_scd->display;
-    root_memb->format     = dies_memb_scd->format;
-    root_memb->flag       = DIES_MEMB_FLAG_IS_ROOT;
-
-    // If type_name already exist then root_entry must not be created.
-    // scd_dies must be linked to existing dies_memb
-    if (g_hash_table_contains(dies_pool->dies_hash, (gpointer)root_memb->type_name)) {
-        while (1);
-    }
-
-    g_hash_table_insert(dies_pool->dies_hash, (gpointer)root_memb->type_name, (gpointer)root_memb);
-
-    DBG_PRINT2("ROOT MEMBER: type_name='%s' size='%d'\n", root_memb->type_name, root_memb->size);
-
-    return root_memb;
 }
 
 int dwarf2_init()
@@ -294,8 +301,8 @@ int dwarf2_finish()
     unsigned i;
     for (i = 0; i < s_dies_size; ++i) {
         dies_memb_t *p = &s_dies[i];
-        if (p->type_name != NULL) free(p->type_name);
-        if (p->field_name != NULL) free(p->field_name);
+        if (p->type_name != NULL) g_free(p->type_name);
+        if (p->field_name != NULL) g_free(p->field_name);
         if (p->strings != NULL) free(p->strings);
     }
     free(s_dies);
@@ -433,7 +440,7 @@ static void link_if_possible(dies_pool_t *dies_pool, dies_memb_t *dies_memb, cha
     if (name) {
         rec = (dies_memb_t*)g_hash_table_lookup(dies_pool->dies_hash, name);
 
-        if (rec) {    // AV: todo move scd memb to dedicated hash
+        if (rec) {
             if (rec->self_id != dies_memb->self_id) {
                 dies_memb->link_id = rec->self_id;
             }
@@ -450,7 +457,9 @@ static void maybe_process_die(dies_pool_t *dies_pool, Dwarf_Die die, dies_memb_t
     name = die_get_name(die);
     tag = die_get_tag(die);
 
-    if (name && (DW_TAG_typedef == tag || DW_TAG_structure_type == tag)) {
+    if (name && 
+        (DW_TAG_typedef   == tag ||
+         DW_TAG_base_type == tag)) {
         
         // Check is DIE has to be processed
         dies_memb_t *dies_memb_scd = NULL;
@@ -468,9 +477,7 @@ static void maybe_process_die(dies_pool_t *dies_pool, Dwarf_Die die, dies_memb_t
                 dies_memb_t *root_memb = NULL;
 
                 // Create, Link and Process new root if not exist yet
-                root_memb = add_record_root(dies_pool, dies_memb_scd, die);
-
-                process_record(dies_pool, root_memb, die, 0);
+                root_memb = process_record(dies_pool, NULL, die, 0);
 
                 dies_memb_scd->link_id  = root_memb->self_id;
                 dies_memb_scd->size     = root_memb->size;
@@ -484,6 +491,26 @@ static void maybe_process_die(dies_pool_t *dies_pool, Dwarf_Die die, dies_memb_t
     }
 
     if (name) dwarf_dealloc(s_dbg, name, DW_DLA_STRING);
+}
+static dies_memb_t *add_type_dies_memb(dies_pool_t *dies_pool, dies_memb_t *parent_dies_memb)
+{
+    dies_memb_t *dies_memb;
+
+    if (parent_dies_memb) {
+        // Parent die already exist (for ex. structures members)
+        parent_dies_memb->flag |= DIES_MEMB_FLAG_IS_PARENT;
+
+        // Create child die 
+        dies_memb = add_record(dies_pool);
+        dies_memb->flag |= DIES_MEMB_FLAG_IS_LAST;
+    }
+    else {
+        // No parent means - Root Member.
+        dies_memb = add_record(dies_pool);
+        dies_memb->flag |= DIES_MEMB_FLAG_IS_ROOT;
+    }
+
+    return dies_memb;
 }
 
 static dies_memb_t *process_record(dies_pool_t *dies_pool, dies_memb_t *dies_memb, Dwarf_Die die, Dwarf_Half parent_tag)
@@ -500,104 +527,182 @@ static dies_memb_t *process_record(dies_pool_t *dies_pool, dies_memb_t *dies_mem
     DBG_PRINT3("process_record(%x,%x) %s\n", tag, parent_tag, name);
 
     // Try to link with existing die_memb
-    if (dies_memb && (tag != DW_TAG_member) && (tag != DW_TAG_base_type)) {
+    if (dies_memb && (tag != DW_TAG_member)) {
         link_if_possible(dies_pool, dies_memb, name);
         if (dies_memb->link_id != -1){
-            return dies_memb;   // Do nothing if linked successufuly 
+            return &dies_pool->dies[dies_memb->link_id];
         }
     }
 
     switch (tag) {
+    case DW_TAG_base_type:
     case DW_TAG_volatile_type:
     case DW_TAG_typedef:
     {
+        dies_memb_t *parent_dies_memb = dies_memb;
+
         DBG_PRINT("TYPEDEF: \n");
-        process_record(dies_pool, dies_memb, type_die, tag);
+        dies_memb = add_type_dies_memb(dies_pool, parent_dies_memb);
+
+        dies_memb->memb_type = DIES_MEMB_TYPE_TYPEDEF;
+        dies_memb->field_name = g_strdup("");
+        dies_memb->size = die_get_size(die);
+
+        dies_memb->type_name = g_strdup(name);
+        if (!g_hash_table_contains(dies_pool->dies_hash, (gpointer)dies_memb->type_name)) {
+            g_hash_table_insert(dies_pool->dies_hash, (gpointer)dies_memb->type_name, (gpointer)dies_memb);
+        }
+
+        if (tag == DW_TAG_base_type) {
+
+            DBG_PRINT("BASETYPE: \n");
+            record_format(dies_memb, die);
+            dies_memb->flag |= DIES_MEMB_FLAG_IS_LAST;
+        }
+        else { // DW_TAG_typedef
+            dies_memb_t *last = NULL;
+
+            last = process_record(dies_pool, dies_memb, type_die, tag);
+
+            // Update flags if typedef not linked to already existing one and has a child.
+            if (last != dies_memb && dies_memb->link_id == -1) {
+                dies_memb->flag |= DIES_MEMB_FLAG_IS_PARENT;
+                last->flag |= DIES_MEMB_FLAG_IS_LAST;
+            }
+
+            dies_memb->format = last->format;
+            dies_memb->display = last->display;
+        }
+
+
+        break;
+    }
+    case DW_TAG_pointer_type:
+    {
+        /* NOTE:
+           DWARF considers pointers not as basic type because it can point to various types.
+           Dissector display pointers not considering its type and proceses it as base type.
+           Thus, artificial base type sholud be added for the pointer type .
+        */
+
+        dies_memb_t *parent_dies_memb = dies_memb;
+
+        // Compose full type name for pointer as they may point to different types
+        parent_dies_memb->type_name = die_get_type_name(die, NULL);
+        
+        // Try to link that type with basic pointer type (void*)
+        link_if_possible(dies_pool, parent_dies_memb, "void*");
+        if (parent_dies_memb->link_id != -1){
+            return &dies_pool->dies[parent_dies_memb->link_id];
+        }
+
+        // Can't link - then create new base type for pointer
+        dies_memb = add_type_dies_memb(dies_pool, parent_dies_memb);
+
+        dies_memb->memb_type = DIES_MEMB_TYPE_POINTER;
+        dies_memb->field_name = g_strdup("");
+        dies_memb->size = die_get_size(die);
+
+        dies_memb->type_name = g_strdup("void*");
+ 
+        g_hash_table_insert(dies_pool->dies_hash, (gpointer)dies_memb->type_name, (gpointer)dies_memb);
+ 
+        record_format(dies_memb, die);
+        dies_memb->flag |= DIES_MEMB_FLAG_IS_LAST;
+
+
         break;
     }
     case DW_TAG_structure_type:
     case DW_TAG_union_type:
     {
         dies_memb_t *last = NULL;
-
-        DBG_PRINT("TYPE: \n");
-
-        dies_memb->memb_type = DIES_MEMB_TYPE_STRUCT;
-        if (DW_TAG_union_type == tag) {
-            // AV: to do rework to fixed length strings
-            char s[256];
-            sprintf(s, strlen(dies_memb->type_name) ? "union %s" : "union", dies_memb->type_name);
-            free(dies_memb->type_name);
-            dies_memb->type_name = strdup(s);
+    
+        if (dies_memb == NULL)
+        {
+            while(1);
         }
 
-        last = process_children(dies_pool, die);
+        last = process_children(dies_pool, NULL, die);
 
         if (last) {
             dies_memb->flag |= DIES_MEMB_FLAG_IS_PARENT;
             last->flag |= DIES_MEMB_FLAG_IS_LAST;
         }
+
+        if (parent_tag != DW_TAG_member) {
+            gchar *fmt_str = NULL;
+            if (tag == DW_TAG_structure_type) {
+                 fmt_str = "struct %s";
+            }
+            else if (tag == DW_TAG_union_type) {
+                 fmt_str = "union %s";
+            }
+            dies_memb->field_name = g_strappend(NULL, fmt_str, name ? name : "");
+        }
+
+        dies_memb->memb_type = DIES_MEMB_TYPE_STRUCT;
         break;
     }
     case DW_TAG_member:
     {
-        char *type_name;
-    
+   
         if (dies_memb != NULL)
         {
             while (1);
         }
 
         dies_memb = add_record(dies_pool);
-        type_name = die_get_type_name(type_die);        // AV: rework required
-
+        
         dies_memb->memb_type = DIES_MEMB_TYPE_FIELD;
-        dies_memb->type_name = strdup(type_name);
-        dies_memb->field_name = strdup(name ? name : "");
+        dies_memb->type_name = die_get_type_name(type_die, NULL);
+        dies_memb->field_name = g_strdup(name ? name : "");
         dies_memb->offset = die_attr_offset(die);
         dies_memb->size = die_get_size(die);
-        record_format(dies_memb, type_die);
 
-        DBG_PRINT4("MEMBER: name='%s' type_name='%s' type_tag='%x' size='%d'\n", name, type_name, tag, dies_memb->size);
-
-        if (!g_hash_table_contains(dies_pool->dies_hash, (gpointer)type_name)) {
-            g_hash_table_insert(dies_pool->dies_hash, (gpointer)type_name, (gpointer)dies_memb);
-        }
+        DBG_PRINT4("MEMBER: name='%s' type_name='%s' type_tag='%x' size='%d'\n", 
+            dies_memb->field_name,
+            dies_memb->type_name,
+            tag,
+            dies_memb->size);
 
         process_record(dies_pool, dies_memb, type_die, DW_TAG_member);
 
-        if (type_name) free(type_name);
         break;
     }
     case DW_TAG_enumeration_type:
     {
+        /* Enumerator type. String values are described in childs */
         int nof_children = die_nof_children(die);
-        dies_memb_t *cur = NULL;
 
         DBG_PRINT("ENUMERATION\n");
 
-        record_format(cur, die);
+        record_format(dies_memb, die);
 
-        cur->strings = malloc((nof_children + 1) * sizeof(value_string));
+        dies_memb->strings = malloc((nof_children + 1) * sizeof(value_string));
         s_enum_index = 0;
 
-        process_children(dies_pool, die);
+        process_children(dies_pool, dies_memb, die);
 
-        cur->strings[s_enum_index].value = 0;
-        cur->strings[s_enum_index].strptr = NULL;
+        // Set end of value_string array
+        dies_memb->strings[s_enum_index].value = 0;
+        dies_memb->strings[s_enum_index].strptr = NULL;
+
+        dies_memb->memb_type = DIES_MEMB_TYPE_ENUM;
 
         break;
     }
     case DW_TAG_enumerator:
     {
-        dies_memb_t *cur = NULL;
+        /* Child for DW_TAG_enumeration_type */
+
         int          value = die_attr_const_value(die);
         char        *name = die_get_name(die);
 
         DBG_PRINT3("ENUMERATOR: %d -> %s(%d)\n", s_enum_index, name, value);
 
-        cur->strings[s_enum_index].value = value;
-        cur->strings[s_enum_index].strptr = strdup(name);
+        dies_memb->strings[s_enum_index].value = value;
+        dies_memb->strings[s_enum_index].strptr = strdup(name);
 
         s_enum_index += 1;
 
@@ -605,78 +710,46 @@ static dies_memb_t *process_record(dies_pool_t *dies_pool, dies_memb_t *dies_mem
     }
     case DW_TAG_array_type:
     {
-        dies_memb_t *last = NULL;
-        char        *type_name = NULL;      // Must be freed
+        /* Array type. Dimensions described in childs */
+        dies_memb_t *dies_memb_entry = NULL;
         int          type_size = 0;
         int          array_size = 0;
 
         array_size = die_attr_size(die);
-        DBG_PRINT1("array_size: %d\n", array_size);
 
+        DBG_PRINT1("array_size: %d\n", array_size);
         DBG_PRINT("ARRAY: \n");
 
         switch (parent_tag) {
         case DW_TAG_member:
+        case DW_TAG_pointer_type:       /* AV: Not tested */
         case DW_TAG_array_type:
         case DW_TAG_typedef:
         case DW_TAG_volatile_type:
         {
             dies_memb->memb_type = DIES_MEMB_TYPE_ARRAY;
-            type_name = die_get_type_name(type_die);
             type_size = die_get_size(type_die);
 
-            /* Dirty string array implementation */
-            if (0 == strcmp(type_name, "char"))
+            // Add subrange strings to array
+            process_children(dies_pool, dies_memb, die);
+
+            // Process a single entry's type            
+            dies_memb_entry = process_record(dies_pool, dies_memb, type_die, DW_TAG_array_type);
+
+            if (dies_memb_entry && 0 == strcmp(dies_memb_entry->type_name, "char"))
             {
                 dies_memb->display = STR_ASCII;
                 dies_memb->format = FT_STRINGZ;
             }
 
-            if (die_nof_children(die))
-                dies_memb->flag |= DIES_MEMB_FLAG_IS_PARENT;
+            DBG_PRINT2("cur->size: %u range: %u\n", dies_memb->size, dies_memb_arr->size);
 
-            last = process_children(dies_pool, die);
-
-            if (last && type_die) {
-                dies_memb_t *prev = NULL;
-                unsigned int range = last->size;
-                char range_s[128];
-                last->type_name = strdup(type_name);
-                last->field_name = strdup(dies_memb->field_name);
-                last->size = type_size;
-                last->flag |= DIES_MEMB_FLAG_IS_LAST;
-                if (DW_TAG_typedef != parent_tag) {
-                    sprintf(range_s, "%s[%u]", dies_memb->type_name, range);
-                    free(dies_memb->type_name);
-                    dies_memb->type_name = strdup(range_s);
-                }
-
-                record_format(last, type_die);
-
-                process_record(dies_pool, dies_memb, type_die, DW_TAG_array_type);
-
-                DBG_PRINT2("cur->size: %u range: %u\n", dies_memb->size, range);
-                dies_memb->size *= range;
-                if (array_size && array_size != dies_memb->size) {
-                    dies_memb->size = array_size;
-                }
-
-                // dies_memb ==> Prev
-                DBG_PRINT1("cur->size: %u\n", dies_memb->size);
-
-                /*
-                dies_memb = prev_record(cur);
-                if (DIES_MEMB_TYPE_ARRAY == dies_memb->memb_type) {
-                    DBG_PRINT2("prev->size: %u range: %u\n", dies_memb->size, range);
-                    dies_memb->size *= range;
-                    DBG_PRINT1("prev->size: %u\n", dies_memb->size);
-                    sprintf(range_s, "%s[%u]", dies_memb->type_name, range);
-                    free(dies_memb->type_name);
-                    dies_memb->type_name = strdup(range_s);
-                }
-                */
+            if (array_size && array_size != dies_memb->size) {
+                dies_memb->size = array_size;
             }
-            if (type_name) free(type_name);
+
+            // dies_memb ==> Prev
+            DBG_PRINT1("cur->size: %u\n", dies_memb->size);
 
             break;
         } // End of Array type case
@@ -688,15 +761,22 @@ static dies_memb_t *process_record(dies_pool_t *dies_pool, dies_memb_t *dies_mem
     }
     case DW_TAG_subrange_type:
     {
+        /* Child of DW_TAG_array_type */
+        unsigned range;
+
         DBG_PRINT("SUBRANGE: \n");
-        if (dies_memb != NULL)
+        if (dies_memb == NULL)
         {
             while (1);
         }
-        dies_memb = add_record(dies_pool);
-        
-        dies_memb->memb_type = DIES_MEMB_TYPE_FIELD;
-        dies_memb->size = process_subrange(die);
+
+        range = process_subrange(die);
+
+        // Append [N] to existing type name (parent)
+        dies_memb->type_name = g_strappend(dies_memb->type_name, "[%u]", range);
+            
+        // Calculate total number of entries (not size) of all dimensions
+        dies_memb->size *= process_subrange(die);
 
         DBG_PRINT1("range: %u\n", dies_memb->size);
 
@@ -712,7 +792,7 @@ static dies_memb_t *process_record(dies_pool_t *dies_pool, dies_memb_t *dies_mem
     return dies_memb;
 }
 
-static dies_memb_t *process_children(dies_pool_t *dies_pool, Dwarf_Die die)
+static dies_memb_t *process_children(dies_pool_t *dies_pool, dies_memb_t *dies_memb, Dwarf_Die die)
 {
     Dwarf_Die child_die = NULL;
     Dwarf_Die sib_die = NULL;
@@ -736,12 +816,12 @@ static dies_memb_t *process_children(dies_pool_t *dies_pool, Dwarf_Die die)
     {
         Dwarf_Half tag;
         tag = die_get_tag(child_die);
-        if ((tag != DW_TAG_member) && (tag != DW_TAG_subrange_type)) {
+        if ((tag != DW_TAG_member) && (tag != DW_TAG_subrange_type) && (tag != DW_TAG_enumerator)) {
             while (1);  // AV: nonamed child???
         }
     }
 
-    last_rec = process_record(dies_pool, NULL, child_die, 0);       // AV: is really NULL
+    last_rec = process_record(dies_pool, dies_memb, child_die, 0);
 
     cur_die = child_die;
 
@@ -759,13 +839,13 @@ static dies_memb_t *process_children(dies_pool_t *dies_pool, Dwarf_Die die)
         {   // AV: test
             Dwarf_Half tag;
             tag = die_get_tag(sib_die);
-            if ((tag != DW_TAG_member) && (tag != DW_TAG_subrange_type))
+            if ((tag != DW_TAG_member) && (tag != DW_TAG_subrange_type) && (tag != DW_TAG_enumerator) )
             {
                 while (1);  // AV: nonamed child???
             }
         }
 
-        last_rec = process_record(dies_pool, NULL, sib_die, 0);
+        last_rec = process_record(dies_pool, dies_memb, sib_die, 0);
 
         // Preserve Child_die until all siblings processed
         if (cur_die != child_die)
@@ -877,6 +957,9 @@ static void record_format(dies_memb_t *rec, Dwarf_Die die)
     field_display_e display = BASE_NONE;
     Dwarf_Die      type_die = die;
     Dwarf_Half     tag = die_get_tag(type_die);
+    int            is_signed;
+
+    is_signed = TRUE;
 
     if (DW_TAG_typedef == tag || DW_TAG_volatile_type == tag) {
         type_die = typedef_to_type(type_die);
@@ -885,39 +968,35 @@ static void record_format(dies_memb_t *rec, Dwarf_Die die)
 
     if (DW_TAG_pointer_type == tag) {
         display = BASE_HEX;
-        format = FT_UINT32; // AV: TODO: platform dependend part. Fix required
     }
+
     else if (DW_TAG_enumeration_type == tag) {
         display = BASE_HEX;
-        format = FT_UINT32;
     }
     else if (DW_TAG_base_type == tag) {
         char *type_name = die_get_name(type_die);
 
-#define MATCH_TYPE(type_str,type_substr,unsign_format,sign_format)  \
-    if (strstr(type_str, type_substr)) {                            \
-      if (strstr(type_str, "unsigned")) {                           \
-        format = unsign_format;                                     \
-        display = BASE_DEC_HEX;                                     \
-            } else {                                                      \
-        format = sign_format;                                       \
-        display = BASE_DEC;                                         \
-            }                                                             \
-      goto END_MATCH_TYPE;                                          \
+        if (strstr(type_name, "unsigned")) {
+            is_signed = FALSE;
+            display = BASE_DEC_HEX;
         }
-#define MATCH_TYPE_END                          \
-    END_MATCH_TYPE:
-
-        MATCH_TYPE(type_name, "long long", FT_UINT64, FT_INT64);
-        MATCH_TYPE(type_name, "long", FT_UINT32, FT_INT32);
-        MATCH_TYPE(type_name, "short", FT_UINT16, FT_INT16);
-        MATCH_TYPE(type_name, "char", FT_UINT8, FT_INT8);
-        MATCH_TYPE(type_name, "int", FT_UINT32, FT_INT32);
-        MATCH_TYPE(type_name, "_Bool", FT_UINT8, FT_INT8);
-        MATCH_TYPE_END;
-
-        DBG_PRINT3("FORMAT(%s) -> (%d,%d)\n", type_name, format, display);
+        else if (strstr(type_name, "signed")) {
+            is_signed = TRUE;
+            display = BASE_DEC;
+        }
+        else {
+            display = BASE_DEC_HEX;
+        }
     }
+
+    switch (rec->size) {
+        case 1: format = is_signed ? FT_INT8  : FT_UINT8;  break;
+        case 2: format = is_signed ? FT_INT16 : FT_UINT16; break;
+        case 4: format = is_signed ? FT_INT32 : FT_UINT32; break;
+        case 8: format = is_signed ? FT_INT64 : FT_UINT64; break;
+        default: format = FT_NONE; break;
+    }
+
     rec->display = display;
     rec->format = format;
 }
@@ -1111,57 +1190,60 @@ static char* die_get_name(Dwarf_Die die)
     return name;
 }
 
-static char* die_get_type_name(Dwarf_Die die)
-{
-    static char res[256];
 
-    memset(res, 0, 256);
-    die_get_type_name_(die, res);
-
-    return strdup(res);
-}
-
-static void die_get_type_name_(Dwarf_Die die, char *res)
+gchar* die_get_type_name(Dwarf_Die die, gchar *res)
 {
     Dwarf_Half tag;
 
     tag = die_get_tag(die);
 
     if (tag == DW_TAG_base_type
-        || tag == DW_TAG_structure_type
         || tag == DW_TAG_union_type
+        || tag == DW_TAG_structure_type
         || tag == DW_TAG_typedef) {
         char *name = NULL;
         name = die_get_name(die);
-        if (name)
-            FORMAT_TYPE2(res, name, "%s%s");
-        if (name) dwarf_dealloc(s_dbg, name, DW_DLA_STRING);
+
+        if (tag == DW_TAG_structure_type){
+            res = g_strprepend(res, "struct %s", name ? name : "" );
+        } 
+        else if (tag == DW_TAG_union_type){
+            res = g_strprepend(res, "union %s", name ? name : "" );
+        } 
+        else {
+            res = g_strprepend (res, "%s", name);
+        }
+
+        if (name){
+            dwarf_dealloc(s_dbg, name, DW_DLA_STRING);
+        }
+
     }
     else {
         Dwarf_Die type_die = NULL;
         switch (tag) {
         case DW_TAG_pointer_type:
-            FORMAT_TYPE(res, "*%s");
+            res = g_strappend(res, "*");
             break;
         case DW_TAG_subroutine_type:
-            FORMAT_TYPE(res, "%s()");
-            break;
-        case DW_TAG_array_type:
-            /* FORMAT_TYPE(res, "%s[]"); */
+            res = g_strappend(res, "()");
             break;
         default:
             ; /* do nothing */
         }
         type_die = die_get_type(die);
         if (type_die) {
-            die_get_type_name_(type_die, res);
+            res = die_get_type_name(type_die, res);
         }
         else if (DW_TAG_pointer_type == tag
                  || DW_TAG_subroutine_type == tag) {
-            FORMAT_TYPE(res, "void%s");
+
+            res = g_strprepend(res, "void ");
         }
         dwarf_dealloc(s_dbg, type_die, DW_DLA_DIE);
     }
+
+    return res;
 }
 
 static unsigned process_subrange(Dwarf_Die die)
@@ -1288,9 +1370,12 @@ static unsigned die_get_size(Dwarf_Die die)
 
 char *dies_memb_type_str[DIES_MEMB_TYPE_LAST] = {
     
-    [DIES_MEMB_TYPE_STRUCT] = "S",
-    [DIES_MEMB_TYPE_ARRAY ] = "A",
-    [DIES_MEMB_TYPE_FIELD]  = " "
+    [DIES_MEMB_TYPE_STRUCT ] = "S",
+    [DIES_MEMB_TYPE_ENUM   ] = "E",
+    [DIES_MEMB_TYPE_TYPEDEF] = "T",
+    [DIES_MEMB_TYPE_POINTER] = "P",
+    [DIES_MEMB_TYPE_ARRAY  ] = "A",
+    [DIES_MEMB_TYPE_FIELD  ] = " "
 };
 
 char *get_dies_memb_type_str(dies_memb_type_t  memb_type){
@@ -1299,21 +1384,11 @@ char *get_dies_memb_type_str(dies_memb_type_t  memb_type){
 
 char *get_dies_flag_str(gint flag, char *str){
 
-    memset(str, '-', 4);
+    str[0] = (flag & DIES_MEMB_FLAG_IS_LAST)   ? 'L' : '-';
+    str[1] = (flag & DIES_MEMB_FLAG_IS_PARENT) ? 'P' : '-';
+    str[2] = (flag & DIES_MEMB_FLAG_IS_ROOT)   ? 'R' : '-';
+    str[3] = (flag & DIES_MEMB_FLAG_SCD_ROOT)  ? 'S' : '-';
     str[4] = 0;
-
-    if (DIES_MEMB_FLAG_IS_LAST      & flag) {
-        str[0] = 'L';
-    }
-    if (DIES_MEMB_FLAG_IS_PARENT    & flag) {
-        str[1] = 'P';
-    }
-    if (DIES_MEMB_FLAG_IS_ROOT      & flag) {
-        str[2] = 'R';
-    }
-    if (DIES_MEMB_FLAG_SCD_ROOT     & flag) {
-        str[3] = 'S';
-    }
 
     return str;    
 }
@@ -1379,6 +1454,7 @@ static char* display2str(field_display_e disp)
 static void dies_print(FILE *fout, dies_memb_t *dies_memb, int cur_level)
 {
 #define MAX_INDENT    (10 * 4)
+    static char *str_delim = "==================================================================================================================\n";
     static char flag_str[5];
     static char indent_str[MAX_INDENT+1] = {0};
     static char data_name[256] = {0};
@@ -1389,16 +1465,16 @@ static void dies_print(FILE *fout, dies_memb_t *dies_memb, int cur_level)
         fprintf(fout, "\n");
         fprintf(fout, "\n");
         fprintf(fout, "Dies members:\n");
-        fprintf(fout, "Type: (S)truct, (A)array;     Flags: (L)ast, (P)arent, (R)oot, (S)SCD entry\n");
-        fprintf(fout, "=================================================================================================================================================\n");
+        fprintf(fout, "Type: (T)ypedef, (S)truct, (A)rray, (E)num;     Flags: (L)ast, (P)arent, (R)oot, (S)CD entry\n");
+        fprintf(fout, str_delim);
         fprintf(fout, " %-3s | %-3s | %-1s | %-40s | %-4s | %-4s | %-s | %-16s | %-12s |\n",
                       "ID", "Lnk", "T", "Data type", "Offs", "Size", "Flag", "Format", "Display");
-        fprintf(fout, "=================================================================================================================================================\n");
+        fprintf(fout, str_delim);
         return;
     }
     else if (dies_memb == NULL && cur_level == -1) {
         // Print footer
-        fprintf(fout, "=================================================================================================================================================\n");
+        fprintf(fout, str_delim);
         return;
     }
 

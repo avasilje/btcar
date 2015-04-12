@@ -7,7 +7,11 @@
 
 #define SCD_DWARF_STANDALONE
 
-//#include "scd_dwarf_wenv.h"
+#if 0
+// Might be used in Windows environment.
+// ATT: Must be synced with actual Wireshark defines.
+#include "scd_dwarf_wenv.h"
+#endif
 
 #include "scd_dwarf_parser.h"
 
@@ -16,8 +20,7 @@ scd_info_t *scd_info;
 int main(int argc, char* argv[])
 {
     int res;
-    dies_memb_t *dies;
-    unsigned dies_size;
+
     GHashTable *dies_pools_hash;
 
     char* scd_fn = NULL;

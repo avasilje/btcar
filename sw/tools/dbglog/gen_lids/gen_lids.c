@@ -10,6 +10,7 @@ char fid_str[2048];
 char fid_fname[256];
 char fid_fname_last[256];
 int  fid_int;
+int  eid_int;
 
 #define MAX_FID_NUM     50
 #define MAX_FID_FNAME   256
@@ -50,8 +51,8 @@ D   5   1231 "message %(struct_sign) message"
     {
         if (inp_line[0] != 'F') continue;
 
-        rc = sscanf(inp_line, "F %i %s", &fid_int, &fid_str[0]);
-        if (rc != 2) 
+        rc = sscanf(inp_line, "F %i %i %s", &eid_int, &fid_int, &fid_str[0]);
+        if (rc != 3) 
             continue;
 
         if ((fid_int >= MAX_FID_NUM) || (strlen(fid_str) >= MAX_FID_FNAME)) 
@@ -159,11 +160,9 @@ main.c-281-    );
         if (e_pos == NULL)  // semicolon not found - ignore
             continue;
 
-        printf("D   1   %-3d %-5d \"%s\"\n", fid_int, line_num, dbg_log_str);
+        printf("D   %-3d %-3d %-5d \"%s\"\n", eid_int, fid_int, line_num, dbg_log_str);
 
     } // End of stdin line parser loop
-
-
 
 	return EXIT_SUCCESS;
 }

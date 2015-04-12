@@ -24,10 +24,6 @@ typedef struct {
     HW_INFO *pointer_A;
     HW_INFO  struct_A;
     struct test_struct {
-        union {
-            uint8_t union_A1;
-            uint16_t union_A2;
-        };
 
         union {
             uint8_t union_B1;
@@ -43,13 +39,13 @@ typedef struct {
     
     void (*pf_func_A)(uint8_t);
     void (*pf_func_B)(HW_INFO *hw_info_p);
-    test_struct struct_array_BB[3][5];
+    struct test_struct struct_array_BB[3][5];
 
     enum {
-        enum_str_A = 1;
-        enum_str_B = 2;
-        enum_str_C = 5;
-        enum_str_D = 10;
+        enum_str_A = 1,
+        enum_str_B = 2,
+        enum_str_C = 5,
+        enum_str_D = 10
     } enum_A;
 
 }DBGLOG_TEST;   

@@ -831,10 +831,8 @@ fillup_reg_info_itt(dies_info_t  *dies_info, dies_memb_t *dies, gint idx) {
     hf_curr->p_id = &dies_info->hf_ids[dies_info->hf_idx];
     hf_curr->hfinfo.name  = abbr_name;
     hf_curr->hfinfo.abbrev = abbr_str;
-    hf_curr->hfinfo.type = dies_memb->format;    
-    hf_curr->hfinfo.display = dies_memb->display;
-    hf_curr->hfinfo.strings = dies_memb->strings;
     hf_curr->hfinfo.blurb = abbr_name;
+
 
     dies_info->hf_idx++;
 
@@ -842,6 +840,10 @@ fillup_reg_info_itt(dies_info_t  *dies_info, dies_memb_t *dies, gint idx) {
     if (dies_memb->link_id != -1) {
         dies_memb = &dies[dies_memb->link_id];
     }
+
+    hf_curr->hfinfo.display = dies_memb->display;
+    hf_curr->hfinfo.type = dies_memb->format;    
+    hf_curr->hfinfo.strings = dies_memb->strings;
 
     if (dies_memb->flag & DIES_MEMB_FLAG_IS_PARENT) {
       strcpy(dies_info->abbr, abbr_str);     /* Prepare abbreviation for next level */
@@ -982,77 +984,6 @@ fillup_tree_reg_info (dies_info_t  *dies_info){
 
 
 }
-
-
-#if 0
-static void 
-link_dies_with_scd(dies_info_t *dies_info, scd_info_t *scd_info){
-
-  guint i, j;
-
-  dies_memb_t   *dies_memb;
-  dies_pool_t   *dies_pool;
-
-  guint         dies_size;
-  scd_evt_t     *scd_evt;
-  int           last_oid;
-  
-  dies_pool = NULL;
-  last_oid = -1;  /* set to any not existing value */
-
-  scd_evt = scd_info->scd_evt_table;
-  for (j = 0; j < scd_info->scd_evt_table_size; j++, scd_evt++){
-
-    if (scd_evt->tag != SCD_EVT_TAG_SIG)
-      continue;
-
-    /* check ELF filename if OID changed */
-    if (last_oid != scd_evt->oid){
-
-      const char *oid_elf_fname;
-      GSList *list_entry;
-
-      last_oid = scd_evt->oid;
-
-      dies_size = 0;
-
-      /* Get elf file name of new OID */
-      oid_elf_fname = scd_get_oid_elfname(scd_info, scd_evt->oid);
-
-      /* Find dies pool within dies list with the same elf file name as OID has */
-      list_entry = g_slist_nth(dies_info->dies_pools_list, 0);
-      while(list_entry){
-        dies_pool = g_slist_nth_data(list_entry, 0);
-
-        if (0 == strcmp(dies_pool->elf_fname, oid_elf_fname)){
-          break;
-        }
-
-        list_entry = g_slist_next(list_entry);
-      } /* End of find proper dies pool by name */
-
-    } /* End of OID changed */
-
-    dies_memb = dies_pool->dies;
-    dies_size = dies_pool->size;
-    for (i = 0; i < dies_size; i++, dies_memb++){
-    
-      if (!(dies_memb->flag & DIES_MEMB_FLAG_IS_ROOT)){
-        continue;
-      }
-
-      if (0 == strcmp(scd_evt->name, dies_memb->type_name)){
-        scd_evt->user_data = dies_memb;
-        break;
-      }
-
-    } /* DIES for loop */
-
-  } /* SCD for loop */
-  return;
-}
-
-#endif 
 
 void
 proto_register_dbglog(void)
