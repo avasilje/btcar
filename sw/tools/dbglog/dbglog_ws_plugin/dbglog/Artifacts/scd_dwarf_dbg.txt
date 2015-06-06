@@ -1,0 +1,108 @@
+IDS:
+{  1,  0,    0, C:\MyWorks\BTCar\sw\tools\dbglog\ref_target\ref_target.elf   }
+{  1,  2,    0, dbg_log.c                                                    }
+{  1,  1,    0, main.c                                                       }
+{  1,  1,  223, Just note                                                    Dies: }
+{  1,  1,  228, Just note 1st lineJust note 2nd line                         Dies: }
+{  1,  1,  232, signature %(T_SIGN_STRUCT).                                  Dies: 0   }
+{  1,  1,  236, HW info  %(HW_INFO) just digit %(uint8_t)                    Dies: 1   2   }
+{  1,  1,  239, Structure of Functions %(T_FUNC_STRUCT)                      Dies: 3   }
+{  1,  1,  242, Named union %(T_UNION_NB)                                    Dies: 4   }
+{  1,  1,  244, Base type test  %(unsigned char)                             Dies: 5   }
+{  1,  1,  246, testing typedef enums  %(T_ENUM_A)                           Dies: 6   }
+{  1,  1,  248, testing Arrays  %(ARRAY_TYPE_BASE_1)                         Dies: 7   }
+{  1,  1,  250, testing Arrays  %(ARRAY_TYPE_BASE_2)                         Dies: 8   }
+{  1,  1,  252, testing_NxArrays typedef %(T_N_ARRAY_STYPE)                  Dies: 9   }
+{  1,  1,  254, testing_NxArrays typedef %(T_N_ARRAY_SBASE)                  Dies: 10  }
+{  1,  1,  258, Mega struct %(DBGLOG_TEST)                                   Dies: 11  }
+
+
+
+Dies members:
+Type: (T)ypedef, (S)truct, (A)rray, (E)num;     Flags: (L)ast, (P)arent, (R)oot, (S)CD entry
+==================================================================================================================
+ ID  | Lnk | T | Data type                                | Offs | Size | Flag | Format           | Display      |
+==================================================================================================================
+ 0   | 27  | T |  T_SIGN_STRUCT (null)                    |    0 |   44 | ---S | FT_NONE          | BASE_NONE    | 
+ 1   | 35  | T |  HW_INFO (null)                          |    0 |  172 | ---S | FT_NONE          | BASE_NONE    | 
+ 2   | 12  | T |  uint8_t (null)                          |    0 |    1 | ---S | FT_NONE          | BASE_NONE    | 
+ 3   | 74  | T |  T_FUNC_STRUCT (null)                    |    0 |   12 | ---S | FT_NONE          | BASE_NONE    | 
+ 4   | 14  | T |  T_UNION_NB (null)                       |    0 |    4 | ---S | FT_NONE          | BASE_NONE    | 
+ 5   | 13  | T |  unsigned char (null)                    |    0 |    0 | ---S | FT_NONE          | BASE_NONE    | 
+ 6   | 45  | T |  T_ENUM_A (null)                         |    0 |    4 | ---S | FT_NONE          | BASE_NONE    | 
+ 7   | 72  | T |  ARRAY_TYPE_BASE_1 (null)                |    0 |    2 | ---S | FT_NONE          | BASE_NONE    | 
+ 8   | 73  | T |  ARRAY_TYPE_BASE_2 (null)                |    0 |    4 | ---S | FT_NONE          | BASE_NONE    | 
+ 9   | 78  | T |  T_N_ARRAY_STYPE (null)                  |    0 |   16 | ---S | FT_NONE          | BASE_NONE    | 
+ 10  | 69  | T |  T_N_ARRAY_SBASE (null)                  |    0 |   24 | ---S | FT_NONE          | BASE_NONE    | 
+ 11  | 46  | T |  DBGLOG_TEST (null)                      |    0 |  244 | L--S | FT_NONE          | BASE_NONE    | 
+ 12  | -1  | T |  uint8_t                                 |    0 |    1 | -PR- | FT_UINT8         | BASE_DEC_HEX | 
+ 13  | -1  | T |      unsigned char                       |    0 |    1 | L--- | FT_UINT8         | BASE_DEC_HEX | 
+ 14  | -1  | T |  T_UNION_NB union named_union_b_e        |    0 |    4 | -PR- | FT_NONE          | BASE_NONE    | 
+ 15  | 12  |   |      uint8_t union_nb1                   |    0 |    1 | ---- | FT_NONE          | BASE_NONE    | 
+ 16  | -1  |   |      uint16_t union_nb2                  |    0 |    2 | -P-- | FT_NONE          | BASE_NONE    | 
+ 17  | -1  | T |          uint16_t                        |    0 |    2 | LP-- | FT_UINT16        | BASE_DEC_HEX | 
+ 18  | -1  | T |              short unsigned int          |    0 |    2 | L--- | FT_UINT16        | BASE_DEC_HEX | 
+ 19  | -1  |   |      T_DUMMY dummy_s                     |    0 |    4 | -P-- | FT_NONE          | BASE_NONE    | 
+ 20  | -1  | T |          T_DUMMY struct dummy_struct     |    0 |    4 | LP-- | FT_NONE          | BASE_NONE    | 
+ 21  | 17  |   |              uint16_t int16_A            |    0 |    2 | ---- | FT_NONE          | BASE_NONE    | 
+ 22  | 12  |   |              uint8_t int8_A              |    2 |    1 | L--- | FT_NONE          | BASE_NONE    | 
+ 23  | -1  |   |      T_DUMMY* p_dummy_s                  |    0 |    4 | -P-- | FT_NONE          | BASE_NONE    | 
+ 24  | -1  | P |          void                            |    0 |    4 | L--- | FT_UINT32        | BASE_HEX     | 
+ 25  | -1  |   |      PT_DUMMY p_pdummy_s                 |    0 |    4 | LP-- | FT_NONE          | BASE_NONE    | 
+ 26  | 24  | T |          struct dummy_struct*            |    0 |    4 | L--- | FT_UINT32        | BASE_HEX     | 
+ 27  | -1  | T |  T_SIGN_STRUCT struct sign_struct        |    0 |   44 | -PR- | FT_NONE          | BASE_NONE    | 
+ 28  | 24  |   |      void * ptr_void                     |    0 |    4 | ---- | FT_NONE          | BASE_NONE    | 
+ 29  | -1  |   |      int int_a                           |    4 |    4 | -P-- | FT_NONE          | BASE_NONE    | 
+ 30  | -1  | T |          int                             |    0 |    4 | L--- | FT_INT32         | BASE_DEC     | 
+ 31  | 12  |   |      uint8_t uc_ver_maj                  |    8 |    1 | ---- | FT_NONE          | BASE_NONE    | 
+ 32  | 12  |   |      uint8_t uc_ver_min                  |    9 |    1 | ---- | FT_NONE          | BASE_NONE    | 
+ 33  | -1  | A |      char[32] ca_sign                    |   10 |   32 | LP-- | FT_STRINGZ       | BASE_NONE    | 
+ 34  | -1  | T |          char                            |    0 |    1 | L--- | FT_INT8          | BASE_DEC     | 
+ 35  | -1  | T |  HW_INFO struct                          |    0 |  172 | -PR- | FT_NONE          | BASE_NONE    | 
+ 36  | -1  |   |      struct sign_struct t_sign1          |    0 |   44 | -P-- | FT_NONE          | BASE_NONE    | 
+ 37  | 24  |   |          void * ptr_void                 |    0 |    4 | ---- | FT_NONE          | BASE_NONE    | 
+ 38  | 30  |   |          int int_a                       |    4 |    4 | ---- | FT_NONE          | BASE_NONE    | 
+ 39  | 12  |   |          uint8_t uc_ver_maj              |    8 |    1 | ---- | FT_NONE          | BASE_NONE    | 
+ 40  | 12  |   |          uint8_t uc_ver_min              |    9 |    1 | ---- | FT_NONE          | BASE_NONE    | 
+ 41  | 34  | A |          char[32] ca_sign                |   10 |   32 | L--- | FT_STRINGZ       | BASE_NONE    | 
+ 42  | 27  |   |      T_SIGN_STRUCT t_sign2               |   44 |   44 | ---- | FT_NONE          | BASE_NONE    | 
+ 43  | 24  |   |      void *() pf_led_func                |   88 |    4 | ---- | FT_NONE          | BASE_NONE    | 
+ 44  | 12  | A |      uint8_t[80] reserved                |   92 |   80 | L--- | FT_NONE          | BASE_NONE    | 
+ 45  | -1  | E |  T_ENUM_A                                |    0 |    4 | --R- | FT_UINT32        | BASE_DEC_HEX | 
+ 46  | -1  | T |  DBGLOG_TEST struct                      |    0 |  244 | -PR- | FT_NONE          | BASE_NONE    | 
+ 47  | 24  |   |      HW_INFO* pointer_A                  |    0 |    4 | ---- | FT_NONE          | BASE_NONE    | 
+ 48  | 35  |   |      HW_INFO struct_A                    |    4 |  172 | ---- | FT_NONE          | BASE_NONE    | 
+ 49  | -1  |   |      struct test_struct_B named_struct_B |  176 |   28 | -P-- | FT_NONE          | BASE_NONE    | 
+ 50  | -1  |   |          union                           |    0 |    2 | -P-- | FT_NONE          | BASE_NONE    | 
+ 51  | 12  |   |              uint8_t union_A1            |    0 |    1 | ---- | FT_NONE          | BASE_NONE    | 
+ 52  | 17  |   |              uint16_t union_A2           |    0 |    2 | L--- | FT_NONE          | BASE_NONE    | 
+ 53  | -1  |   |          union  named_union_B            |    2 |    2 | -P-- | FT_NONE          | BASE_NONE    | 
+ 54  | 12  |   |              uint8_t union_B1            |    0 |    1 | ---- | FT_NONE          | BASE_NONE    | 
+ 55  | 17  |   |              uint16_t union_B2           |    0 |    2 | L--- | FT_NONE          | BASE_NONE    | 
+ 56  | 45  |   |          T_ENUM_A enum_B                 |    4 |    4 | ---- | FT_NONE          | BASE_NONE    | 
+ 57  | 20  |   |          T_DUMMY str_str_A               |    8 |    4 | ---- | FT_NONE          | BASE_NONE    | 
+ 58  | 12  |   |          uint8_t field_A                 |   12 |    1 | ---- | FT_NONE          | BASE_NONE    | 
+ 59  | 12  |   |          uint8_t field_B                 |   13 |    1 | ---- | FT_NONE          | BASE_NONE    | 
+ 60  | 34  | A |          char[5] array_A                 |   14 |    5 | ---- | FT_STRINGZ       | BASE_NONE    | 
+ 61  | 34  | A |          char[2][3] array_AA             |   19 |    6 | L--- | FT_STRINGZ       | BASE_NONE    | 
+ 62  | -1  |   |      struct  unnamed_struct_C            |  204 |    2 | -P-- | FT_NONE          | BASE_NONE    | 
+ 63  | 12  |   |          uint8_t field_A                 |    0 |    1 | ---- | FT_NONE          | BASE_NONE    | 
+ 64  | 12  |   |          uint8_t field_B                 |    1 |    1 | L--- | FT_NONE          | BASE_NONE    | 
+ 65  | 24  |   |      void *() pf_func_A                  |  208 |    4 | ---- | FT_NONE          | BASE_NONE    | 
+ 66  | 24  |   |      void *() pf_func_B                  |  212 |    4 | ---- | FT_NONE          | BASE_NONE    | 
+ 67  | 20  | A |      T_DUMMY[3][2] struct_array_BB       |  216 |   24 | ---- | FT_NONE          | BASE_NONE    | 
+ 68  | 45  |   |      T_ENUM_A enum_A                     |  240 |    4 | L--- | FT_NONE          | BASE_NONE    | 
+ 69  | -1  | T |  T_N_ARRAY_SBASE struct                  |    0 |   24 | -PR- | FT_NONE          | BASE_NONE    | 
+ 70  | -1  | A |      short int[2][3][2] n_array          |    0 |   24 | LP-- | FT_NONE          | BASE_NONE    | 
+ 71  | -1  | T |          short int                       |    0 |    2 | L--- | FT_INT16         | BASE_DEC     | 
+ 72  | 34  | A |  ARRAY_TYPE_BASE_1[2]                    |    0 |    2 | --R- | FT_STRINGZ       | BASE_NONE    | 
+ 73  | 71  | A |  ARRAY_TYPE_BASE_2[2]                    |    0 |    4 | --R- | FT_NONE          | BASE_NONE    | 
+ 74  | -1  | T |  T_FUNC_STRUCT struct                    |    0 |   12 | -PR- | FT_NONE          | BASE_NONE    | 
+ 75  | 24  |   |      void *() pf_func_A                  |    0 |    4 | ---- | FT_NONE          | BASE_NONE    | 
+ 76  | 24  |   |      void *() pf_func_B                  |    4 |    4 | ---- | FT_NONE          | BASE_NONE    | 
+ 77  | 24  |   |      HW_INFO*()* pf_func_C               |    8 |    4 | L--- | FT_NONE          | BASE_NONE    | 
+ 78  | -1  | T |  T_N_ARRAY_STYPE struct                  |    0 |   16 | LPR- | FT_NONE          | BASE_NONE    | 
+ 79  | 12  | A |      uint8_t[2][3] n_array               |    0 |    6 | ---- | FT_NONE          | BASE_NONE    | 
+ 80  | 45  |   |      T_ENUM_A enum_A                     |    8 |    4 | ---- | FT_NONE          | BASE_NONE    | 
+ 81  | 34  |   |      char ch_A                           |   12 |    1 | L--- | FT_NONE          | BASE_NONE    | 
+==================================================================================================================
