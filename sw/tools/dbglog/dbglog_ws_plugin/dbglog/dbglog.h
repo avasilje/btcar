@@ -39,8 +39,15 @@ typedef struct _dissect_dies_itt_info_t {
     gint        offset_lvl[100];
     proto_tree *parent_tree[100];
     gint        hf_id_idx;
+    gint        ett_id_idx;
 
 } dissect_dies_itt_info_t;
+
+typedef struct _ett_info_t {
+    gint    ett_id;
+    const gchar   *abbr;
+    gint    hf_idx;
+} ett_info_t;
 
 #define MAX_PROTO_ABBR  1024
 typedef struct _dies_info_t {
@@ -58,9 +65,11 @@ typedef struct _dies_info_t {
   size_t    abbr_lvl[100];      // length of abbr at certain level. Max used index = max_idx ==> Depth level
   char      abbr[MAX_PROTO_ABBR];
 
-  int              *hf_ids;
+  gint              *hf_ids;
   hf_register_info  *hf_dies;
-  gint  **ett_dies;
+
+  gint              **ett_ids_p;
+  ett_info_t        *ett_dies;
 
   gboolean       encoding;      // AV: ??? is it property of elf file ???
 

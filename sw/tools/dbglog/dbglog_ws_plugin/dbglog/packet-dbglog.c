@@ -1,9 +1,12 @@
+// AV: TODO:
+// - Remove "unknow" for anonymous unions
+
 /* packet-dbglog.c
  * Routines for DBG Log Viewer protocol packet disassembly
  * By Andrejs Vasiljevs
  * Copyright 2015 Andrejs Vasiljevs
  *
-  * Wireshark - Network traffic analyzer
+ * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
@@ -46,8 +49,8 @@ char str_scratch[1024];
 dissect_dies_itt_info_t     dissect_dies_itt_info;      // AV: ??? should it be placed inside DIES_INFO ???
 
 #define TAB_STOP_LAST 44
-static gint field_name_tab_stop[] = {20, 28, 36, TAB_STOP_LAST};
-static gchar white_space_str[TAB_STOP_LAST+2+1] = "                                              "; /* +2 delimiter; +1 null term. */
+static gint field_name_tab_stop[] = { 20, 28, 36, TAB_STOP_LAST };
+static gchar white_space_str[TAB_STOP_LAST + 2 + 1] = "                                              "; /* +2 delimiter; +1 null term. */
 
 static scd_info_t   *scd_info;
 static dies_info_t  dies_info;
@@ -55,37 +58,37 @@ static dies_info_t  dies_info;
 static dbglog_hdr_t  dbglog_hdr;
 static scd_log_msg_t  scd_log_msg;
 
-static char *scd_filename  = "C:\\MyWorks\\BTCar\\sw\\tools\\dbglog\\ref_target\\scd.txt";
+static char *scd_filename = "C:\\MyWorks\\BTCar\\sw\\tools\\dbglog\\ref_target\\scd.txt";
 
 static int proto_dbglog = -1;
 
-static int hf_dbglog_version   = -1;
-static int hf_dbglog_flags     = -1;
-static int hf_dbglog_eid       = -1;
-static int hf_dbglog_mark       = -1;
-static int hf_dbglog_datalen     = -1;
-static int hf_dbglog_fid        = -1;
-static int hf_dbglog_lid        = -1;
+static int hf_dbglog_version = -1;
+static int hf_dbglog_flags = -1;
+static int hf_dbglog_eid = -1;
+static int hf_dbglog_mark = -1;
+static int hf_dbglog_datalen = -1;
+static int hf_dbglog_fid = -1;
+static int hf_dbglog_lid = -1;
 
 static int hf_dbglog_msg = -1;
 
-static gint ett_msghdr      = -1;
-static gint ett_dbglog_msg  = -1;
+static gint ett_msghdr = -1;
+static gint ett_dbglog_msg = -1;
 
 static gint *ett_dbglog[] = {
     &ett_msghdr,
     &ett_dbglog_msg
-  };
+};
 
 const value_string endianess_info[] = {
-    {0x0100,     "Native"},
-    {0x0001,     "Reversed"},
-    {0,      NULL}
+        { 0x0100, "Native" },
+        { 0x0001, "Reversed" },
+        { 0, NULL }
 };
 const value_string endianess_internal[] = {
-    {0,     "Native"},
-    {1,     "Reversed"},
-    {0,      NULL}
+        { 0, "Native" },
+        { 1, "Reversed" },
+        { 0, NULL }
 };
 
 const value_string *val_str_task_id = NULL;
@@ -99,51 +102,51 @@ void proto_reg_handoff_dbglog(void);
 #if 1
 static hf_register_info log_event_hf[] = {
 
-  { &hf_dbglog_version, 
-    { "Version", "dl.version",
-      FT_UINT8, BASE_DEC, NULL, 0, "", HFILL
-    }
-  },
+        { &hf_dbglog_version,
+        { "Version", "dl.version",
+        FT_UINT8, BASE_DEC, NULL, 0, "", HFILL
+        }
+        },
 
-  { &hf_dbglog_flags, 
-    { "Flags", "dl.flags",
-      FT_UINT8, BASE_DEC, NULL, 0, "", HFILL
-    }
-  },
+        { &hf_dbglog_flags,
+        { "Flags", "dl.flags",
+        FT_UINT8, BASE_DEC, NULL, 0, "", HFILL
+        }
+        },
 
-  { &hf_dbglog_eid, 
-    { "EID", "dl.eid",
-      FT_UINT8, BASE_DEC, NULL, 0, "", HFILL
-    }
-  },
+        { &hf_dbglog_eid,
+        { "EID", "dl.eid",
+        FT_UINT8, BASE_DEC, NULL, 0, "", HFILL
+        }
+        },
 
-  { &hf_dbglog_mark, 
-    { "Mark", "dl.mark",
-      FT_UINT8, BASE_HEX, NULL, 0, "", HFILL
-    }
-  },
+        { &hf_dbglog_mark,
+        { "Mark", "dl.mark",
+        FT_UINT8, BASE_HEX, NULL, 0, "", HFILL
+        }
+        },
 
-  { &hf_dbglog_datalen, 
-    { "Data length", "dl.datalen",
-      FT_UINT8, BASE_DEC, NULL, 0, "", HFILL
-    }
-  },
-  { &hf_dbglog_fid, 
-    { "File ID", "dl.fid",
-      FT_UINT8, BASE_DEC, NULL, 0, "", HFILL
-    }
-  },
-  { &hf_dbglog_lid, 
-    { "Line number", "dl.lid",
-      FT_UINT16, BASE_DEC, NULL, 0, "", HFILL
-    }
-  },
+        { &hf_dbglog_datalen,
+        { "Data length", "dl.datalen",
+        FT_UINT8, BASE_DEC, NULL, 0, "", HFILL
+        }
+        },
+        { &hf_dbglog_fid,
+        { "File ID", "dl.fid",
+        FT_UINT8, BASE_DEC, NULL, 0, "", HFILL
+        }
+        },
+        { &hf_dbglog_lid,
+        { "Line number", "dl.lid",
+        FT_UINT16, BASE_DEC, NULL, 0, "", HFILL
+        }
+        },
 
-  { &hf_dbglog_msg, 
-    { "Log message", "dl.log_msg",
-      FT_NONE, BASE_NONE, NULL, 0x0, "", HFILL
-    }
-  }
+        { &hf_dbglog_msg,
+        { "Log message", "dl.log_msg",
+        FT_NONE, BASE_NONE, NULL, 0x0, "", HFILL
+        }
+        }
 
 };
 # endif 
@@ -151,484 +154,598 @@ static hf_register_info log_event_hf[] = {
 static void
 decorate_msghdr(tvbuff_t *tvb, proto_tree *tree, proto_item  *item){
 
-  int offset;
+    int offset;
 
-  /* Decorate MSGHDR item */
-  if (!tree) return;
+    /* Decorate MSGHDR item */
+    if (!tree) return;
 
-  offset = 0;
+    offset = 0;
 
-  /* Decorate event info  */
-  proto_tree_add_item(tree, hf_dbglog_version  , tvb, offset + 0, sizeof(guint8), dbglog_hdr.encoding);
-  proto_tree_add_item(tree, hf_dbglog_flags    , tvb, offset + 1, sizeof(guint8), dbglog_hdr.encoding);
-  proto_tree_add_item(tree, hf_dbglog_mark     , tvb, offset + 2, sizeof(guint8), dbglog_hdr.encoding);
-  proto_tree_add_item(tree, hf_dbglog_eid      , tvb, offset + 3, sizeof(guint8), dbglog_hdr.encoding);
-  proto_tree_add_item(tree, hf_dbglog_fid      , tvb, offset + 4, sizeof(guint16), dbglog_hdr.encoding);
-  proto_tree_add_item(tree, hf_dbglog_lid      , tvb, offset + 6, sizeof(guint16), dbglog_hdr.encoding);
-  proto_tree_add_item(tree, hf_dbglog_datalen  , tvb, offset + 8, sizeof(guint16), dbglog_hdr.encoding);
+    /* Decorate event info  */
+    proto_tree_add_item(tree, hf_dbglog_version, tvb, offset + 0, sizeof(guint8), dbglog_hdr.encoding);
+    proto_tree_add_item(tree, hf_dbglog_flags, tvb, offset + 1, sizeof(guint8), dbglog_hdr.encoding);
+    proto_tree_add_item(tree, hf_dbglog_mark, tvb, offset + 2, sizeof(guint8), dbglog_hdr.encoding);
+    proto_tree_add_item(tree, hf_dbglog_eid, tvb, offset + 3, sizeof(guint8), dbglog_hdr.encoding);
+    proto_tree_add_item(tree, hf_dbglog_fid, tvb, offset + 4, sizeof(guint16), dbglog_hdr.encoding);
+    proto_tree_add_item(tree, hf_dbglog_lid, tvb, offset + 6, sizeof(guint16), dbglog_hdr.encoding);
+    proto_tree_add_item(tree, hf_dbglog_datalen, tvb, offset + 8, sizeof(guint16), dbglog_hdr.encoding);
 
-  /*
-  proto_item_set_text(item_info, "Endianess: %s", 
+    /*
+    proto_item_set_text(item_info, "Endianess: %s",
     val_to_str(dbglog_hdr.encoding, endianess_internal, "Unknown(%u)"));
-  */
+    */
 
-  /* Decorate tree root */
-  proto_item_set_text(item, "DBGLOG header. EID:%s, FID:%s, LID:%d, Len:%d", 
-    dbglog_hdr.eid_name,
-    dbglog_hdr.fid_name,
-    dbglog_hdr.lid,
-    dbglog_hdr.data_len);
+    /* Decorate tree root */
+    proto_item_set_text(item, "DBGLOG header. EID:%s, FID:%s, LID:%d, Len:%d",
+                        dbglog_hdr.eid_name,
+                        dbglog_hdr.fid_name,
+                        dbglog_hdr.lid,
+                        dbglog_hdr.data_len);
 }
 
 static gint
 dissect_msghdr(tvbuff_t *tvb){
 
-  gint    bytes_read;
-  
-  /* Endian agnostic part */
-  dbglog_hdr.ver       = tvb_get_guint8(tvb, 0);
-  dbglog_hdr.flags     = tvb_get_guint8(tvb, 1);
-  dbglog_hdr.mark      = tvb_get_guint8(tvb, 2);
-  dbglog_hdr.eid       = tvb_get_guint8(tvb, 3);
-  
-  dbglog_hdr.encoding = GET_BITS(dbglog_hdr.flags,  0, 1);
+    gint    bytes_read;
 
-  if (dbglog_hdr.encoding){
-    /* Reversed */
-    dbglog_hdr.fid       = tvb_get_letohs(tvb, 4);
-    dbglog_hdr.lid       = tvb_get_letohs(tvb, 6);
-    dbglog_hdr.data_len  = tvb_get_letohs(tvb, 8);
-  } else {
-    /* Native */
-    dbglog_hdr.fid       = tvb_get_ntohs(tvb, 4);
-    dbglog_hdr.lid       = tvb_get_ntohs(tvb, 6);
-    dbglog_hdr.data_len  = tvb_get_ntohs(tvb, 8);
-  }
+    /* Endian agnostic part */
+    dbglog_hdr.ver = tvb_get_guint8(tvb, 0);
+    dbglog_hdr.flags = tvb_get_guint8(tvb, 1);
+    dbglog_hdr.mark = tvb_get_guint8(tvb, 2);
+    dbglog_hdr.eid = tvb_get_guint8(tvb, 3);
 
-  bytes_read = 10;
+    dbglog_hdr.encoding = GET_BITS(dbglog_hdr.flags, 0, 1);
 
-  dbglog_hdr.eid_name = scd_get_elfname(scd_info, dbglog_hdr.eid);
-  dbglog_hdr.fid_name = scd_get_fidname(scd_info, dbglog_hdr.eid, dbglog_hdr.fid);
+    if (dbglog_hdr.encoding){
+        /* Reversed */
+        dbglog_hdr.fid = tvb_get_letohs(tvb, 4);
+        dbglog_hdr.lid = tvb_get_letohs(tvb, 6);
+        dbglog_hdr.data_len = tvb_get_letohs(tvb, 8);
+    }
+    else {
+        /* Native */
+        dbglog_hdr.fid = tvb_get_ntohs(tvb, 4);
+        dbglog_hdr.lid = tvb_get_ntohs(tvb, 6);
+        dbglog_hdr.data_len = tvb_get_ntohs(tvb, 8);
+    }
 
-  return bytes_read;
+    bytes_read = 10;
+
+    dbglog_hdr.eid_name = scd_get_elfname(scd_info, dbglog_hdr.eid);
+    dbglog_hdr.fid_name = scd_get_fidname(scd_info, dbglog_hdr.eid, dbglog_hdr.fid);
+
+    return bytes_read;
 }
 
-static const gchar* 
+static const gchar*
 get_padding(const gchar* str){
-    
-  gint  n, i;
-  const gchar* padding;
 
-  padding = &white_space_str[TAB_STOP_LAST];
-  n = (gint)strlen(str);
-  for(i = 0; i < array_length(field_name_tab_stop); i++){
-    if ( n < field_name_tab_stop[i]){
-      padding -= field_name_tab_stop[i] - n;
-      break;
+    gint  n, i;
+    const gchar* padding;
+
+    padding = &white_space_str[TAB_STOP_LAST];
+    n = (gint)strlen(str);
+    for (i = 0; i < array_length(field_name_tab_stop); i++){
+        if (n < field_name_tab_stop[i]){
+            padding -= field_name_tab_stop[i] - n;
+            break;
+        }
     }
-  }
-  return padding;
+    return padding;
 }
 
 static gchar*
 find_next_fmt(gchar *pos){
 
-  while(pos){
-    pos = strchr(pos, '%');
-    if (pos == NULL) break;
-    if (pos[1] != '%') break;
-    pos += 2;
-  }
-  return pos;
+    while (pos){
+        pos = strchr(pos, '%');
+        if (pos == NULL) break;
+        if (pos[1] != '%') break;
+        pos += 2;
+    }
+    return pos;
 }
 
 static gint
 process_nonstd_fmt(tvbuff_t *tvb, int *p_offset, char **p_log_msg_pos, gint log_msg_rem, guint8 payload_type, gchar **p_scd_msg){
 
-/* TODO: check g_snprintf return value for WIN32 and GNUC */
+    /* TODO: check g_snprintf return value for WIN32 and GNUC */
 
-  int offset;
-  char *out_pos, *scd_msg_pos, *delim_pos;
-  int res;
-  gint out_bw;
-  guint tvb_remaining;
+    int offset;
+    char *out_pos, *scd_msg_pos, *delim_pos;
+    int res;
+    gint out_bw;
+    guint tvb_remaining;
 
-  offset = *p_offset;
-  out_pos = *p_log_msg_pos;
-  scd_msg_pos = *p_scd_msg + 1; /* +1 to skip '%' */
-  out_bw = 0;
+    offset = *p_offset;
+    out_pos = *p_log_msg_pos;
+    scd_msg_pos = *p_scd_msg + 1; /* +1 to skip '%' */
+    out_bw = 0;
 
-  res = tvb_length_remaining(tvb, offset);
-  if (res > 0) tvb_remaining = (guint)res;
-  else return -1;
+    res = tvb_length_remaining(tvb, offset);
+    if (res > 0) tvb_remaining = (guint)res;
+    else return -1;
 
-  /* Process non standard formats */
-  res = RESULT_OK;
-  switch(*scd_msg_pos){
-    case 'Y' : 
-      {  /* MAC DD:DD:DD:DD:DD:DD */ 
+    /* Process non standard formats */
+    res = RESULT_OK;
+    switch (*scd_msg_pos){
+    case 'Y':
+    {  /* MAC DD:DD:DD:DD:DD:DD */
         guint8 mac[6];
         if (payload_type != DBGLOG_HDR_PTYPE_MSG_MAC){ res = RESULT_FAIL; break; }
         if (tvb_remaining < sizeof(mac)){ res = RESULT_FAIL; break; }
 
         tvb_memcpy(tvb, mac, offset, sizeof(mac)); /* TODO: Check byte order from FW & DRV */
         offset += sizeof(mac);
-        out_bw += g_snprintf(out_pos, log_msg_rem, "%02X:%02X:%02X:%02X:%02X:%02X", 
-          mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        out_bw += g_snprintf(out_pos, log_msg_rem, "%02X:%02X:%02X:%02X:%02X:%02X",
+                             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
         break;
-      }
+    }
 
-    case 'B' :
-      { /* IP4 DD.DD.DD.DD */
+    case 'B':
+    { /* IP4 DD.DD.DD.DD */
         guint8 ipv4[4];
         if (payload_type != DBGLOG_HDR_PTYPE_MSG_INT32){ res = RESULT_FAIL; break; }
         if (tvb_remaining < sizeof(ipv4)){ res = RESULT_FAIL; break; }
 
         tvb_memcpy(tvb, ipv4, offset, sizeof(ipv4)); /* TODO: Check byte order from FW & DRV */
         offset += sizeof(ipv4);
-        out_bw += g_snprintf(out_pos, log_msg_rem, "%d.%d.%d.%d", 
-          ipv4[0], ipv4[1], ipv4[2], ipv4[3]);
+        out_bw += g_snprintf(out_pos, log_msg_rem, "%d.%d.%d.%d",
+                             ipv4[0], ipv4[1], ipv4[2], ipv4[3]);
         break;
-      }
+    }
 
-    case 'K' : 
-      { /* IPv6 DDDD:DDDD:DDDD:DDDD:DDDD:DDDD:DDDD:DDDD */
+    case 'K':
+    { /* IPv6 DDDD:DDDD:DDDD:DDDD:DDDD:DDDD:DDDD:DDDD */
         guint16 ipv6[8];
         if (payload_type != DBGLOG_HDR_PTYPE_MSG_IPV6){ res = RESULT_FAIL; break; }
         if (tvb_remaining < sizeof(ipv6)){ res = RESULT_FAIL; break; }
 
-        tvb_memcpy(tvb, ipv6, offset, sizeof(ipv6)); 
+        tvb_memcpy(tvb, ipv6, offset, sizeof(ipv6));
         offset += sizeof(ipv6);
-        out_bw += g_snprintf(out_pos, log_msg_rem, "%04X:%04X:%04X:%04X:%04X:%04X:%04X:%04X", 
-          ipv6[0], ipv6[1], ipv6[2], ipv6[3], ipv6[4], ipv6[5], ipv6[6], ipv6[7]);
+        out_bw += g_snprintf(out_pos, log_msg_rem, "%04X:%04X:%04X:%04X:%04X:%04X:%04X:%04X",
+                             ipv6[0], ipv6[1], ipv6[2], ipv6[3], ipv6[4], ipv6[5], ipv6[6], ipv6[7]);
         break;
-      }
-    case 'H' : 
-      { /* uint64 0xDDDDDDDDDDDDDDDD*/
+    }
+    case 'H':
+    { /* uint64 0xDDDDDDDDDDDDDDDD*/
         guint32 longh[2];
         if (payload_type != DBGLOG_HDR_PTYPE_MSG_INT64){ res = RESULT_FAIL; break; }
         if (tvb_remaining < sizeof(longh)){ res = RESULT_FAIL; break; }
         tvb_memcpy(tvb, longh, offset, sizeof(longh)); /* TODO: Check byte order from FW & DRV */
         offset += sizeof(longh);
-        out_bw += g_snprintf(out_pos, log_msg_rem, "0x%08X%08X", 
-          longh[0], longh[1]);
+        out_bw += g_snprintf(out_pos, log_msg_rem, "0x%08X%08X",
+                             longh[0], longh[1]);
         break;
-      }
-  };
+    }
+    };
 
-  if (res == RESULT_FAIL){
-    return -1;  /* Error - terminate packet processing */
-  }
+    if (res == RESULT_FAIL){
+        return -1;  /* Error - terminate packet processing */
+    }
 
-  if (out_bw == 0){
-    return 0;   /* nonstd format not recognized - continue processing */
-  }
+    if (out_bw == 0){
+        return 0;   /* nonstd format not recognized - continue processing */
+    }
 
-  /* Append SCD message remainder till next '%'*/
-  out_pos += out_bw;
-  scd_msg_pos ++;
+    /* Append SCD message remainder till next '%'*/
+    out_pos += out_bw;
+    scd_msg_pos++;
 
-  delim_pos = find_next_fmt(scd_msg_pos);
+    delim_pos = find_next_fmt(scd_msg_pos);
 
-  /* Truncate SCD till next '%' */
-  if (delim_pos){ *delim_pos = 0; }
+    /* Truncate SCD till next '%' */
+    if (delim_pos){ *delim_pos = 0; }
 
-  out_bw += g_snprintf(out_pos, log_msg_rem - out_bw, "%s", scd_msg_pos);
+    out_bw += g_snprintf(out_pos, log_msg_rem - out_bw, "%s", scd_msg_pos);
 
-  /* Restore truncated string */
-  if (delim_pos){ *delim_pos = '%'; }
+    /* Restore truncated string */
+    if (delim_pos){ *delim_pos = '%'; }
 
-  *p_offset = offset;
-  *p_log_msg_pos += out_bw;
-  *p_scd_msg = delim_pos; /* return NULL if SCD_MSG fully processed */
+    *p_offset = offset;
+    *p_log_msg_pos += out_bw;
+    *p_scd_msg = delim_pos; /* return NULL if SCD_MSG fully processed */
 
-  return out_bw;
-}      
+    return out_bw;
+}
 
 static gint
 process_std_fmt(tvbuff_t *tvb, gint *p_offset, gchar **p_log_msg_pos, gint log_msg_rem, guint8 payload_type, gchar **scd_msg){
 
-/* TODO: Check byte order from FW & DRV */
-/* TODO: check g_snprintf return value for WIN32 and GNUC */
+    /* TODO: Check byte order from FW & DRV */
+    /* TODO: check g_snprintf return value for WIN32 and GNUC */
 
-  gint res;
-  gchar *out_pos, *scd_msg_pos, *delim_pos;
-  gint  offset, out_bw;
-  guint tvb_remaining;
+    gint res;
+    gchar *out_pos, *scd_msg_pos, *delim_pos;
+    gint  offset, out_bw;
+    guint tvb_remaining;
 
-  guint   payload_len;
-  guint8  payload_uint8;
-  guint32 payload_uint32;
-  
-  offset = *p_offset;
-  out_pos = *p_log_msg_pos;
-  scd_msg_pos = *scd_msg;
-  out_bw = 0;
-  
-  res = tvb_length_remaining(tvb, offset);
-  if (res > 0) tvb_remaining = (guint)res;
-  else return -1;
+    guint   payload_len;
+    guint8  payload_uint8;
+    guint32 payload_uint32;
 
-  /* Append SCD message remainder till next '%'*/
-  delim_pos = find_next_fmt(scd_msg_pos+1);
+    offset = *p_offset;
+    out_pos = *p_log_msg_pos;
+    scd_msg_pos = *scd_msg;
+    out_bw = 0;
 
-  /* Truncate SCD till next '%' */
-  if (delim_pos){ *delim_pos = 0; }
+    res = tvb_length_remaining(tvb, offset);
+    if (res > 0) tvb_remaining = (guint)res;
+    else return -1;
 
-  res = RESULT_OK;
-  switch(payload_type){
-    case DBGLOG_HDR_PTYPE_MSG_STR   :
-      { guint8  *payload_str = NULL;
+    /* Append SCD message remainder till next '%'*/
+    delim_pos = find_next_fmt(scd_msg_pos + 1);
 
-        /* Get string length */
-        if (tvb_remaining < sizeof(guint16)){ res = RESULT_FAIL; break;}
-        payload_len = dbglog_hdr.encoding ? tvb_get_letohs(tvb, offset) : tvb_get_ntohs(tvb, offset);
+    /* Truncate SCD till next '%' */
+    if (delim_pos){ *delim_pos = 0; }
 
-        /* Get string itself*/
-        if (tvb_remaining < payload_len + 2){ res = RESULT_FAIL; break;}
-        payload_str = tvb_get_string(wmem_packet_scope(), tvb, offset + 2, payload_len);
-        payload_len += 2;
-        out_bw = g_snprintf(out_pos, (gulong)log_msg_rem, scd_msg_pos, payload_str);
-        g_free(payload_str);
+    res = RESULT_OK;
+    switch (payload_type){
+    case DBGLOG_HDR_PTYPE_MSG_STR:
+    { guint8  *payload_str = NULL;
+
+    /* Get string length */
+    if (tvb_remaining < sizeof(guint16)){ res = RESULT_FAIL; break; }
+    payload_len = dbglog_hdr.encoding ? tvb_get_letohs(tvb, offset) : tvb_get_ntohs(tvb, offset);
+
+    /* Get string itself*/
+    if (tvb_remaining < payload_len + 2){ res = RESULT_FAIL; break; }
+    payload_str = tvb_get_string(wmem_packet_scope(), tvb, offset + 2, payload_len);
+    payload_len += 2;
+    out_bw = g_snprintf(out_pos, (gulong)log_msg_rem, scd_msg_pos, payload_str);
+    g_free(payload_str);
+    break;
+    }
+    case DBGLOG_HDR_PTYPE_MSG_INT8:
+        if (tvb_remaining < sizeof(guint8)){ res = RESULT_FAIL; break; }
+        payload_uint8 = tvb_get_guint8(tvb, offset);
+        payload_len = 1;
+        out_bw = g_snprintf(out_pos, (gulong)log_msg_rem, scd_msg_pos, payload_uint8);
         break;
-      }
-    case DBGLOG_HDR_PTYPE_MSG_INT8  :
-      if (tvb_remaining < sizeof(guint8)){ res = RESULT_FAIL; break;}
-      payload_uint8 = tvb_get_guint8(tvb, offset);
-      payload_len = 1;
-      out_bw = g_snprintf(out_pos, (gulong)log_msg_rem, scd_msg_pos, payload_uint8);
-      break;
-    case DBGLOG_HDR_PTYPE_MSG_INT32 :
-      if (tvb_remaining < sizeof(guint32)){ res = RESULT_FAIL; break;}
-      payload_uint32 = dbglog_hdr.encoding ? tvb_get_letohl(tvb, offset) : tvb_get_ntohl(tvb, offset);
-      payload_len = 4;
-      out_bw = g_snprintf(out_pos, (gulong)log_msg_rem, scd_msg_pos, payload_uint32);
-      break;
-    case DBGLOG_HDR_PTYPE_MSG_INT64 :
-    case DBGLOG_HDR_PTYPE_MSG_MAC   :
-    case DBGLOG_HDR_PTYPE_MSG_IPV6  :
-      res = RESULT_FAIL;
-      break;
-  }
+    case DBGLOG_HDR_PTYPE_MSG_INT32:
+        if (tvb_remaining < sizeof(guint32)){ res = RESULT_FAIL; break; }
+        payload_uint32 = dbglog_hdr.encoding ? tvb_get_letohl(tvb, offset) : tvb_get_ntohl(tvb, offset);
+        payload_len = 4;
+        out_bw = g_snprintf(out_pos, (gulong)log_msg_rem, scd_msg_pos, payload_uint32);
+        break;
+    case DBGLOG_HDR_PTYPE_MSG_INT64:
+    case DBGLOG_HDR_PTYPE_MSG_MAC:
+    case DBGLOG_HDR_PTYPE_MSG_IPV6:
+        res = RESULT_FAIL;
+        break;
+    }
 
-  /* Restore truncated string */
-  if (delim_pos){ *delim_pos = '%'; }
+    /* Restore truncated string */
+    if (delim_pos){ *delim_pos = '%'; }
 
-  if (res == RESULT_FAIL){
-    return -1;  /* Error - terminate packet processing */
-  }
+    if (res == RESULT_FAIL){
+        return -1;  /* Error - terminate packet processing */
+    }
 
-  if (out_bw < 0){
-    out_bw = g_snprintf(out_pos, (gulong)log_msg_rem, "%%invalid qualifier%%");  
-    return -1; 
-  }
+    if (out_bw < 0){
+        out_bw = g_snprintf(out_pos, (gulong)log_msg_rem, "%%invalid qualifier%%");
+        return -1;
+    }
 
-  offset += payload_len;  /* advance offset in case of recognized format qualifier */
+    offset += payload_len;  /* advance offset in case of recognized format qualifier */
 
-  *p_offset = offset;
-  *p_log_msg_pos += out_bw;
-  *scd_msg = delim_pos; /* return NULL if SCD_MSG fully processed */
+    *p_offset = offset;
+    *p_log_msg_pos += out_bw;
+    *scd_msg = delim_pos; /* return NULL if SCD_MSG fully processed */
 
-  return out_bw; /* if 0 std format not recognized - continue processing */
-}      
+    return out_bw; /* if 0 std format not recognized - continue processing */
+}
 
 #if 0
 static int
 dissect_log_msg(tvbuff_t *tvb, gint prev_offset, const char *scd_msg, proto_tree *tree, proto_item  *item){
 
-  gint chars_written;
-  gint offset;
-  gint log_msg_rem;
- 
-  gchar *log_msg;
+    gint chars_written;
+    gint offset;
+    gint log_msg_rem;
 
-  gchar *scd_msg_pos;
-  gchar *log_msg_pos;
-  gchar *delim_pos;
+    gchar *log_msg;
 
-  log_msg = g_malloc(SCD_LINE_SIZE);
-  log_msg[0] = 0;
+    gchar *scd_msg_pos;
+    gchar *log_msg_pos;
+    gchar *delim_pos;
 
-  offset = prev_offset;
-  scd_msg_pos = scd_msg;
-  log_msg_pos = log_msg;
-  log_msg_rem = SCD_LINE_SIZE;
+    log_msg = g_malloc(SCD_LINE_SIZE);
+    log_msg[0] = 0;
 
-  /* Process SCD MSG till first '%' */
-  delim_pos = find_next_fmt(scd_msg_pos);
+    offset = prev_offset;
+    scd_msg_pos = scd_msg;
+    log_msg_pos = log_msg;
+    log_msg_rem = SCD_LINE_SIZE;
 
-  if (delim_pos){ *delim_pos = 0; }     /* Truncate on first %'*/
-  chars_written = g_snprintf(log_msg_pos, (gulong)log_msg_rem, "%s", scd_msg_pos);
-  if (chars_written < 0){
-    chars_written = g_snprintf(log_msg_pos, (gulong)log_msg_rem, "%%invalid qualifier%%");  
-  }
-  log_msg_pos += chars_written;
-  if (delim_pos){ *delim_pos = '%'; }   /* Restore truncated string */
-  
-  /* Process payload fields if exist */
-  while(delim_pos){
-    guint8 payload_type;
+    /* Process SCD MSG till first '%' */
+    delim_pos = find_next_fmt(scd_msg_pos);
 
-    log_msg_rem -= chars_written;
+    if (delim_pos){ *delim_pos = 0; }     /* Truncate on first %'*/
+    chars_written = g_snprintf(log_msg_pos, (gulong)log_msg_rem, "%s", scd_msg_pos);
+    if (chars_written < 0){
+        chars_written = g_snprintf(log_msg_pos, (gulong)log_msg_rem, "%%invalid qualifier%%");  
+    }
+    log_msg_pos += chars_written;
+    if (delim_pos){ *delim_pos = '%'; }   /* Restore truncated string */
 
-    if (tvb_length_remaining(tvb, offset)){
-      payload_type = tvb_get_guint8(tvb, offset);
-      offset += 1;
-    }else{
-      break;
+    /* Process payload fields if exist */
+    while(delim_pos){
+        guint8 payload_type;
+
+        log_msg_rem -= chars_written;
+
+        if (tvb_length_remaining(tvb, offset)){
+            payload_type = tvb_get_guint8(tvb, offset);
+            offset += 1;
+        }else{
+            break;
+        }
+
+        /* Process SCD string starting from '%' */
+        chars_written = process_nonstd_fmt(tvb, &offset, &log_msg_pos, log_msg_rem, payload_type, &delim_pos);
+        if (chars_written == -1) break;
+        if (chars_written > 0) continue;
+
+        /* (res == 0) -> non std format not found */
+
+        chars_written = process_std_fmt(tvb, &offset, &log_msg_pos, log_msg_rem, payload_type, &delim_pos);
+        if (chars_written == -1) break;
+        if (chars_written > 0) continue;
+
+        /* (chars_written == 0) -> format not recognized or null string */
     }
 
-    /* Process SCD string starting from '%' */
-    chars_written = process_nonstd_fmt(tvb, &offset, &log_msg_pos, log_msg_rem, payload_type, &delim_pos);
-    if (chars_written == -1) break;
-    if (chars_written > 0) continue;
+    /* Set LOG message */
+    proto_item_set_text(item, "LOG MSG: %s", log_msg);
 
-    /* (res == 0) -> non std format not found */
+    g_free(log_msg);
 
-    chars_written = process_std_fmt(tvb, &offset, &log_msg_pos, log_msg_rem, payload_type, &delim_pos);
-    if (chars_written == -1) break;
-    if (chars_written > 0) continue;
-
-    /* (chars_written == 0) -> format not recognized or null string */
-  }
-
-  /* Set LOG message */
-  proto_item_set_text(item, "LOG MSG: %s", log_msg);
-
-  g_free(log_msg);
-
-  return -1;
+    return -1;
 }
 
 #endif
 
-static void 
+static void
 decorate_cols_by_scd_log_msg(packet_info *pinfo){
 
-  col_set_str(pinfo->cinfo, COL_PROTOCOL, "dbglog");
-  col_add_str(pinfo->cinfo, COL_INFO, scd_log_msg.info_str);
+    col_set_str(pinfo->cinfo, COL_PROTOCOL, "dbglog");
+    col_add_str(pinfo->cinfo, COL_INFO, scd_log_msg.info_str);
 
-  return;
+    return;
 }
 
-static void 
+static void
 decorate_cols_by_msghdr(packet_info *pinfo){
 
-  col_set_str(pinfo->cinfo, COL_PROTOCOL, "dbglog");
-  col_add_str(pinfo->cinfo, COL_INFO, "Unknown message. EVT not found in SCD file");
-  
-  return;
+    col_set_str(pinfo->cinfo, COL_PROTOCOL, "dbglog");
+    col_add_str(pinfo->cinfo, COL_INFO, "Unknown message. EVT not found in SCD file");
+
+    return;
 }
 
 
-typedef void (dies_itt_t)(dies_info_t*, dies_memb_t *dies, gint idx);
+typedef gint (dies_itt_t)(dies_info_t*, dies_memb_t *dies, gint idx, gint is_format_only);
+
+static gint 
+get_is_format_only(dies_memb_t *dies, gint curr_idx, gint child_idx)
+{
+
+    gint is_format_only = FALSE;
+
+    /* If current DIE is field, then we need only its format */
+    if (dies[curr_idx].memb_type == DIES_MEMB_TYPE_FIELD) {
+        is_format_only = TRUE;
+    }
+
+    /* If DIE's format already known, process format again */
+    if (dies[curr_idx].format != FT_NONE) {
+        is_format_only = TRUE;
+    }
+
+    /* If child DIE is a field, then always process it as a field */
+    if (dies[child_idx].memb_type == DIES_MEMB_TYPE_FIELD) {
+        is_format_only = FALSE;
+    }
+
+    return is_format_only;
+}
 
 static gint
-dies_iterrate_fields_by_die(dies_info_t  *dies_info, dies_memb_t *dies, gint idx, dies_itt_t *dies_itt) {
+dies_iterrate_fields_by_die(dies_info_t  *dies_info, dies_memb_t *dies, gint idx, dies_itt_t *dies_itt, gint is_format_only) {
 
-  if (dies_info->max_idx < dies_info->lvl_idx)
-    dies_info->max_idx = dies_info->lvl_idx;
+    gint is_format_only_child;
 
-  while(1){
-    gint is_last = dies[idx].flag & DIES_MEMB_FLAG_IS_LAST;
+    if (dies_info->max_idx < dies_info->lvl_idx)
+        dies_info->max_idx = dies_info->lvl_idx;
 
+    while (1){
+        gint is_last        = dies[idx].flag & DIES_MEMB_FLAG_IS_LAST;
+        gint is_referenced  = dies[idx].flag & DIES_MEMB_FLAG_IS_REFER;
+        
+        dies[idx].flag &= ~DIES_MEMB_FLAG_IS_REFER;
 
-    if ( dies[idx].link_id != -1) {
+        if (dies[idx].link_id != -1) {
 
-        dies_info->lvl_idx ++;
-        dies_itt(dies_info, dies, idx);
+            gint lnk_idx;
 
-        dies[dies[idx].link_id].flag |= DIES_MEMB_FLAG_IS_REFER;
-        dies_iterrate_fields_by_die(dies_info, dies, dies[idx].link_id, dies_itt);      /* Recursive call */
-        idx++;
+            lnk_idx = dies[idx].link_id;
+            
+            is_format_only_child = get_is_format_only(dies, idx, lnk_idx);
 
-        dies_info->lvl_idx--;
-    }
-    else {
-        gint is_refer = dies[idx].flag & DIES_MEMB_FLAG_IS_REFER;
+            dies_itt(dies_info, dies, idx, is_format_only);
 
-        if (is_refer) {
-            // Note: linked entry does not affect on call-depth level
-            // Clear "is referenced" flag
-            dies[idx].flag &= ~DIES_MEMB_FLAG_IS_REFER;
+            dies[lnk_idx].flag |= DIES_MEMB_FLAG_IS_REFER;
+
+            if (is_format_only_child) {
+                dies_iterrate_fields_by_die(dies_info, dies, lnk_idx, dies_itt, is_format_only_child);      /* Recursive call */
+            }
+            else {
+                dies_info->lvl_idx++;
+                dies_iterrate_fields_by_die(dies_info, dies, lnk_idx, dies_itt, is_format_only_child);      /* Recursive call */
+                dies_info->lvl_idx--;
+            }
+
+            idx++;
+
         }
         else {
-            dies_info->lvl_idx ++;
-            dies_itt(dies_info, dies, idx);
+
+            if (dies[idx].flag & DIES_MEMB_FLAG_IS_PARENT) {
+
+                dies_itt(dies_info, dies, idx, is_format_only);
+
+                is_format_only_child = get_is_format_only(dies, idx, idx+1);
+                
+                if (is_format_only_child) {
+                    idx = dies_iterrate_fields_by_die(dies_info, dies, idx + 1, dies_itt, is_format_only_child);      /* Recursive call */
+                }
+                else {
+                    dies_info->lvl_idx++;
+                    idx = dies_iterrate_fields_by_die(dies_info, dies, idx + 1, dies_itt, is_format_only_child);      /* Recursive call */
+                    dies_info->lvl_idx--;
+                }
+            }
+            else {
+                dies_itt(dies_info, dies, idx, is_format_only);
+                idx++;
+            }
+
         }
 
-        if (dies[idx].flag & DIES_MEMB_FLAG_IS_PARENT) {
-            idx = dies_iterrate_fields_by_die(dies_info, dies, idx+1, dies_itt);      /* Recursive call */
+        if (is_referenced) {
+            return -1; /* Return value not used for referenced members */
         }
 
-        if (is_refer) {
-          break;
+        /* Exit if the member is last on that level
+           Otherwise, proceed with next member on that level */
+        if (is_last) {
+            break;
         }
 
-        dies_info->lvl_idx--;
-    }
+        /* is_format_only applicable only for 1st loop iteration */
+        is_format_only = FALSE;
 
-    /* Proceed with next member on that level */
-    if (is_last) {
-      break;
-    }
-    
-  } /* while(1)*/
+    } /* while(1)*/
 
 
-  return idx;
+    return idx;
 
 }
 
-void
-dissect_dies_itt(dies_info_t  *dies_info, dies_memb_t *dies, gint idx) {
+static gchar*
+get_last_token(gchar *arg_str){
+    gchar *in_str = arg_str;
+    gchar *out_str = NULL;
+
+    while(*in_str != 0){
+        if (*in_str++ == ' ') out_str = in_str;
+    } 
+
+    return out_str ? out_str : arg_str;
+}
+
+static gchar*
+get_first_token(gchar *arg_str){
+    gchar *in_str = arg_str;
+
+    while(*in_str != 0){
+        if (!g_ascii_isalnum(*in_str) && (*in_str != '_')) {
+            *in_str = 0;
+            break;
+        }
+        in_str++;
+    } 
+
+    return arg_str;
+}
+
+gint
+dissect_dies_itt(dies_info_t  *dies_info, dies_memb_t *dies, gint idx, gint is_format_only) {
 
     dies_memb_t         *dies_memb;
 
     proto_tree  *tree_dies_memb;
     proto_item  *ti_dies_memb;
 
-    tvbuff_t    *tvb            = dissect_dies_itt_info.tvb;
-    gint        offset          = dissect_dies_itt_info.offset_lvl[dies_info->lvl_idx-1];
-    proto_tree  *parent_tree    = dissect_dies_itt_info.parent_tree[dies_info->lvl_idx-1];
-    gint        hf_id_idx       = dissect_dies_itt_info.hf_id_idx;
-
-    dissect_dies_itt_info.hf_id_idx++;
+    tvbuff_t    *tvb;
+    gint        offset;
+    proto_tree  *parent_tree;
+    gint        hf_id_idx;
+    gint        ett_id_idx;
 
     dies_memb = &dies[idx];
 
-    offset +=  dies_memb->offset;
+    /* Skip SCD entry processing */
+    if (dies_memb->flag & DIES_MEMB_FLAG_SCD_ROOT) {
+        return TRUE;
+    }
+
+    if (is_format_only) {
+        return TRUE;
+    }
+
+    hf_id_idx = dissect_dies_itt_info.hf_id_idx++;
+    tvb = dissect_dies_itt_info.tvb;
+    offset = dissect_dies_itt_info.offset_lvl[dies_info->lvl_idx - 1];
+    parent_tree = dissect_dies_itt_info.parent_tree[dies_info->lvl_idx - 1];
+
+    offset += dies_memb->offset;
 
     // Add item 
-    if (tvb_length(tvb) < (offset + dies_memb->size)){
-      offset  = offset;     /* just place holder for break point */
-      return;               /* some thing wrong. PC must not hit here */
+    if (tvb_length(tvb) < (offset + dies_memb->size)) {
+        offset = offset;     /* just place holder for break point */
+        return TRUE;               /* some thing wrong. PC must not hit here */
     }
+
+#if 0
+    /* If it is an array, then add an array tree */
+    if (dies_memb->memb_type & DIES_MEMB_TYPE_ARRAY)
+    {
+        tree_dies_memb = proto_item_add_subtree(ti_dies_memb, dies_memb->ett_id);
+        dissect_dies_itt_info.parent_tree[dies_info->lvl_idx] = tree_dies_memb;
+
+        ti_dies_memb = proto_tree_add_item(
+            tree_dies_memb,                   /* Parent tree */
+            dies_info->hf_ids[hf_id_idx] ,    /* Item ID */
+            tvb,                              /* Packet Buffer */
+            offset,                           /* Start */
+            dies_memb->size,                  /* Length */
+            dbglog_hdr.encoding);             /* Encoding */
+
+        proto_item_prepend_text(ti_dies_memb, "%s%s", 
+                                dies_memb->type_name, 
+                                get_padding(dies_memb->type_name));
+
+    }
+#endif
 
     ti_dies_memb = proto_tree_add_item(
-      parent_tree,                      /* Parent tree */
-      dies_info->hf_ids[hf_id_idx] ,    /* Item ID */
-      tvb,                              /* Packet Buffer */
-      offset,                           /* Start */
-      dies_memb->size,                  /* Length */
-      dbglog_hdr.encoding);             /* Encoding */
+        parent_tree,                      /* Parent tree */
+        dies_info->hf_ids[hf_id_idx],     /* Item ID */
+        tvb,                              /* Packet Buffer */
+        offset,                           /* Start */
+        dies_memb->size,                  /* Length */
+        dbglog_hdr.encoding);             /* Encoding */
 
-    proto_item_prepend_text(ti_dies_memb, "%s%s", 
-      dies_memb->type_name, 
-      get_padding(dies_memb->type_name));
+    proto_item_prepend_text(ti_dies_memb, "%s%s",
+                            dies_memb->type_name,
+                            get_padding(dies_memb->type_name));
 
-    // If the DIE is linked, then get all required data from linked one.
-    if (dies_memb->link_id != -1) {
-        dies_memb = &dies[dies_memb->link_id];
+
+    ett_id_idx = dissect_dies_itt_info.ett_id_idx++;
+
+    DISSECTOR_ASSERT(hf_id_idx == dies_info->ett_dies[ett_id_idx].hf_idx);
+        
+    if (dies_info->hf_dies[hf_id_idx].hfinfo.type == FT_NONE) 
+    {
+        dissect_dies_itt_info.offset_lvl[dies_info->lvl_idx] = offset;
+        tree_dies_memb = proto_item_add_subtree(ti_dies_memb, dies_info->ett_dies[ett_id_idx].ett_id);
+        dissect_dies_itt_info.parent_tree[dies_info->lvl_idx] = tree_dies_memb;
     }
 
-    if (dies_memb->flag & DIES_MEMB_FLAG_IS_PARENT) {
-      dissect_dies_itt_info.offset_lvl[dies_info->lvl_idx] = offset;
+    return TRUE;
 
-      tree_dies_memb = proto_item_add_subtree(ti_dies_memb, dies_memb->ett_id);
-      dissect_dies_itt_info.parent_tree[dies_info->lvl_idx] = tree_dies_memb;
-    }
- 
 }
 
 static void
@@ -659,12 +776,14 @@ dissect_log_msg(tvbuff_t *tvb, gint offset, scd_entry_t *scd, proto_tree *parent
         dissect_dies_itt_info.offset_lvl[0] = offset;
 
         dissect_dies_itt_info.hf_id_idx = scd_die->scd_hf_idx;
+        dissect_dies_itt_info.ett_id_idx = scd_die->scd_ett_idx;
+
         scd_die->flag |= DIES_MEMB_FLAG_IS_LAST;
 
         // Traverse SCD dies 
         dies_info.lvl_idx = 0;
-        dies_iterrate_fields_by_die(&dies_info, dies_pool->dies, scd_die->self_id, dissect_dies_itt);
-            
+        dies_iterrate_fields_by_die(&dies_info, dies_pool->dies, scd_die->self_id, dissect_dies_itt, FALSE);
+
         offset += (scd_die->size);
 
         list_entry = g_slist_next(list_entry);
@@ -674,98 +793,108 @@ dissect_log_msg(tvbuff_t *tvb, gint offset, scd_entry_t *scd, proto_tree *parent
 }
 
 static int
-dissect_dbglog(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
-{
-  proto_tree    *tree_msghdr  = NULL;
-  proto_item    *ti_msghdr    = NULL;
+dissect_dbglog(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data) {
+    proto_tree    *tree_msghdr = NULL;
+    proto_item    *ti_msghdr = NULL;
 
-  gint          msghdr_len;
+    gint          msghdr_len;
 
-  scd_entry_t   *scd_evt;
+    scd_entry_t   *scd_evt;
 
-  gint          temp;
+    gint          temp;
 
-  msghdr_len = dissect_msghdr(tvb);
+    msghdr_len = dissect_msghdr(tvb);
 
-  if (tree) {
-    ti_msghdr   = proto_tree_add_item(tree, proto_dbglog, tvb, 0, msghdr_len, FALSE);
-    tree_msghdr = proto_item_add_subtree(ti_msghdr, ett_msghdr);
-    decorate_msghdr(tvb, tree_msghdr, ti_msghdr);
-  }
+    if (tree) {
+        ti_msghdr = proto_tree_add_item(tree, proto_dbglog, tvb, 0, msghdr_len, FALSE);
+        tree_msghdr = proto_item_add_subtree(ti_msghdr, ett_msghdr);
+        decorate_msghdr(tvb, tree_msghdr, ti_msghdr);
+    }
 
-  /* Try to find SCD message by E,F,L */
-  scd_evt = scd_get_by_ids(scd_info, 
-      dbglog_hdr.eid,
-      dbglog_hdr.fid,
-      dbglog_hdr.lid);
+    /* Try to find SCD message by E,F,L */
+    scd_evt = scd_get_by_ids(scd_info,
+                             dbglog_hdr.eid,
+                             dbglog_hdr.fid,
+                             dbglog_hdr.lid);
 
-  if (NULL == scd_evt){
-    decorate_cols_by_msghdr(pinfo);
-    return tvb_length(tvb);
-  }
+    if (NULL == scd_evt){
+        decorate_cols_by_msghdr(pinfo);
+        return tvb_length(tvb);
+    }
 
-  switch (scd_evt->tag){
+    switch (scd_evt->tag){
 
     case SCD_ENTRY_TAG_MSG:
-      if (tree) {
-        proto_item  *ti_log_msg   = NULL;
-        proto_tree  *tree_log_msg = NULL;
-        gint item_offset;
+        if (tree) {
+            proto_item  *ti_log_msg = NULL;
+            proto_tree  *tree_log_msg = NULL;
+            gint item_offset;
 
-        /* Set item offset to 0 for empty packets. Set offset to payload otherwise; */
-        item_offset = tvb_length_remaining(tvb, msghdr_len) ? msghdr_len : 0;
+            /* Set item offset to 0 for empty packets. Set offset to payload otherwise; */
+            item_offset = tvb_length_remaining(tvb, msghdr_len) ? msghdr_len : 0;
 
-        /* Add item without payload */
-        ti_log_msg = proto_tree_add_item(tree, hf_dbglog_msg, tvb, item_offset, -1, FALSE);
-        
-        proto_item_set_text(ti_log_msg, "MSG: %s", scd_evt->str);
+            /* Add item without payload */
+            ti_log_msg = proto_tree_add_item(tree, hf_dbglog_msg, tvb, item_offset, -1, FALSE);
 
-        tree_log_msg = proto_item_add_subtree(ti_log_msg, ett_dbglog_msg);
+            proto_item_set_text(ti_log_msg, "MSG: %s", scd_evt->str);
 
-        dissect_log_msg(tvb, item_offset, scd_evt, tree_log_msg, ti_log_msg);
+            tree_log_msg = proto_item_add_subtree(ti_log_msg, ett_dbglog_msg);
 
-      }
+            dissect_log_msg(tvb, item_offset, scd_evt, tree_log_msg, ti_log_msg);
 
-      /* Generate formated INFO string */
-      strncpy(scd_log_msg.info_str, scd_evt->str, sizeof(scd_log_msg.info_str));
+        }
 
-      decorate_cols_by_scd_log_msg(pinfo);
-      break;
+        /* Generate formated INFO string */
+        strncpy(scd_log_msg.info_str, scd_evt->str, sizeof(scd_log_msg.info_str));
+
+        decorate_cols_by_scd_log_msg(pinfo);
+        break;
     default:
-      /* Payload unknown */
-      decorate_cols_by_msghdr(pinfo);
-      break;
-  }
-
-  temp = tvb_length(tvb);
-  return temp;
-}
-
-void
-dies_iterrate_fields(dies_info_t  *dies_info,  dies_itt_t *dies_itt){
-
-  dies_pool_t *dies_pool;
-  GHashTableIter iter;
-
-  g_hash_table_iter_init(&iter, dies_info->dies_pools_hash);
-  while (g_hash_table_iter_next(&iter, NULL, (gpointer *)&dies_pool))
-  {
-    if (dies_pool->size == 0){
-      continue;
+        /* Payload unknown */
+        decorate_cols_by_msghdr(pinfo);
+        break;
     }
-    dies_info->lvl_idx = 0;
-    dies_iterrate_fields_by_die(dies_info, dies_pool->dies, 0, dies_itt);
-  }
 
+    temp = tvb_length(tvb);
+    return temp;
 }
 
 void
-calc_fields_num_itt(dies_info_t  *dies_info, dies_memb_t *dies, gint idx) {
+dies_iterrate_fields(dies_info_t  *dies_info, dies_itt_t *dies_itt){
 
-    UNREFERENCED_PARAM(dies);
-    UNREFERENCED_PARAM(idx);
+    dies_pool_t *dies_pool;
+    GHashTableIter iter;
+
+    g_hash_table_iter_init(&iter, dies_info->dies_pools_hash);
+    while (g_hash_table_iter_next(&iter, NULL, (gpointer *)&dies_pool))
+    {
+        if (dies_pool->size == 0){
+            continue;
+        }
+        dies_iterrate_fields_by_die(dies_info, dies_pool->dies, 0, dies_itt, FALSE);
+    }
+
+}
+
+gint
+calc_fields_num_itt(dies_info_t  *dies_info, dies_memb_t *dies, gint idx, gint is_format_only) {
+
+    dies_memb_t         *dies_memb;
+
+    dies_memb = &dies[idx];
+
+    if (dies_memb->flag & DIES_MEMB_FLAG_SCD_ROOT) {
+        return TRUE;
+    }
+
+    if (is_format_only) {
+        return TRUE;
+    }
 
     dies_info->fields_num++;
+    dies_info->trees_num++;
+
+    return TRUE;
 }
 
 void
@@ -773,217 +902,222 @@ calc_fields_num(dies_info_t  *dies_info) {
 
     /* Calcs number of fields, store result in dies_info */
     dies_info->fields_num = 0;
+    dies_info->trees_num = 0;
     dies_info->max_idx = 0;
 
-    dies_iterrate_fields(dies_info,  calc_fields_num_itt);
+    dies_iterrate_fields(dies_info, calc_fields_num_itt);
 }
 
-void
-fillup_reg_info_itt(dies_info_t  *dies_info, dies_memb_t *dies, gint idx) {
- 
-    gchar               *abbr_name;
+gint
+fillup_reg_info_itt(dies_info_t  *dies_info, dies_memb_t *dies, gint idx, gint is_format_only) {
+
     gchar               *abbr_str;
     size_t              abbr_str_len, abbr_node_len;
     hf_register_info    *hf_curr;
     dies_memb_t         *dies_memb;
+    gint                hf_idx;
+    gint                ett_idx;
 
+    static const hf_register_info hf_blank =
+    { NULL,
+    { NULL, NULL,
+    FT_NONE, BASE_NONE,
+    NULL, 0x0,
+    NULL, HFILL } };
 
     if (dies[idx].flag & DIES_MEMB_FLAG_SCD_ROOT) {
         dies[idx].scd_hf_idx = dies_info->hf_idx;
+        dies[idx].scd_ett_idx = dies_info->ett_idx;
+        return TRUE;
     }
-  
+
     dies_memb = &dies[idx];
 
-    static hf_register_info hf_blank = 
-        { NULL,
-        { NULL, NULL,
-            FT_NONE, BASE_NONE,
-            NULL, 0x0,
-            NULL, HFILL }};
+    if (is_format_only) {
+        /* Update last filed format if not known yet */
+        hf_register_info    *need_format_hf;
+        need_format_hf = &dies_info->hf_dies[dies_info->hf_idx-1];
 
-    /* Use type name for root entries */
-    if (dies_memb->field_name && strlen(dies_memb->field_name))
-    {
-        abbr_name =  dies_memb->field_name;
+        if (need_format_hf->hfinfo.type == FT_NONE) {
+            need_format_hf->hfinfo.display = dies_memb->display;
+            need_format_hf->hfinfo.type = dies_memb->format;
+            need_format_hf->hfinfo.strings = dies_memb->strings;
+        }
+        return TRUE;
     }
-    else
-    {
-        abbr_name = dies_memb->type_name;
+
+    /* Create new field */
+    gchar *abbr_name;
+    gchar *abbr_name_tmp;
+
+    abbr_name_tmp = get_last_token(dies_memb->field_name);
+
+    /* Use type name if field name not specified */
+    if (abbr_name_tmp[0] == 0) {
+        /* remove " struct" */
+        abbr_name_tmp = get_last_token(dies_memb->type_name);
     }
+
+    if (abbr_name_tmp[0] == 0) {
+        /* remove " struct" */
+        abbr_name_tmp = "unknown";
+    }
+
+    abbr_name = g_strdup(abbr_name_tmp);
+    get_first_token(abbr_name);
+
+    hf_idx = dies_info->hf_idx++;
 
     /* Compose full abbrev */
-    abbr_node_len = dies_info->abbr_lvl[dies_info->lvl_idx-1];
+    abbr_node_len = dies_info->abbr_lvl[dies_info->lvl_idx - 1];
     dies_info->abbr[abbr_node_len] = 0;     /* Restore abbreviation */
 
     abbr_str_len = abbr_node_len + 1 + strlen(abbr_name) + 1; /* xxx.yyy/0 */
     abbr_str = g_malloc(abbr_str_len);
 
-    dies_info->abbr_lvl[dies_info->lvl_idx] = abbr_str_len;
-    
     g_snprintf(abbr_str, (gulong)abbr_str_len, "%s.%s", dies_info->abbr, abbr_name);
+    dies_info->abbr_lvl[dies_info->lvl_idx] = abbr_str_len - 1;
+    strcpy(dies_info->abbr, abbr_str);     /* Prepare abbreviation for next level */
 
-    /* Init with blank template*/
-    dies_info->hf_ids[dies_info->hf_idx] = -1;
+    /* Init with blank template */
+    dies_info->hf_ids[hf_idx] = -1;
 
-    hf_curr = &dies_info->hf_dies[dies_info->hf_idx];
+    hf_curr = &dies_info->hf_dies[hf_idx];
     memcpy(hf_curr, &hf_blank, sizeof(hf_register_info));
 
-    hf_curr->p_id = &dies_info->hf_ids[dies_info->hf_idx];
-    hf_curr->hfinfo.name  = abbr_name;
+    hf_curr->p_id = &dies_info->hf_ids[hf_idx];
+    hf_curr->hfinfo.name = abbr_name;
     hf_curr->hfinfo.abbrev = abbr_str;
     hf_curr->hfinfo.blurb = abbr_name;
 
-
-    dies_info->hf_idx++;
-
-    // If the DIE is linked, then get all required data from linked one.
-    if (dies_memb->link_id != -1) {
-        dies_memb = &dies[dies_memb->link_id];
-    }
-
     hf_curr->hfinfo.display = dies_memb->display;
-    hf_curr->hfinfo.type = dies_memb->format;    
+    hf_curr->hfinfo.type = dies_memb->format;
     hf_curr->hfinfo.strings = dies_memb->strings;
 
-    if (dies_memb->flag & DIES_MEMB_FLAG_IS_PARENT) {
-      strcpy(dies_info->abbr, abbr_str);     /* Prepare abbreviation for next level */
-    }
- 
+    /* Create new tree */
+    ett_idx = dies_info->ett_idx++;
+
+    dies_info->ett_dies[ett_idx].abbr = abbr_str;
+    dies_info->ett_dies[ett_idx].hf_idx = hf_idx;
+    dies_info->ett_dies[ett_idx].ett_id = -1;
+    dies_info->ett_ids_p[ett_idx] = &dies_info->ett_dies[ett_idx].ett_id;
+
+    
+    return TRUE;
+
 }
 
 static void
 fillup_reg_info(dies_info_t *dies_info){
 
-  dies_info->hf_idx = 0;
+    dies_info->hf_idx = 0;
+    dies_info->ett_idx = 0;
 
-  strcpy(dies_info->abbr, "dl");
+    strcpy(dies_info->abbr, "dl");
 
-  memset(dies_info->abbr_lvl, -1, sizeof(dies_info->abbr_lvl));
-  dies_info->abbr_lvl[0] = strlen(dies_info->abbr);
+    dies_info->lvl_idx = 0;
 
-  dies_iterrate_fields(dies_info,  fillup_reg_info_itt);
+    memset(dies_info->abbr_lvl, -1, sizeof(dies_info->abbr_lvl));
+    dies_info->abbr_lvl[dies_info->lvl_idx] = strlen(dies_info->abbr);
+
+
+    dies_iterrate_fields(dies_info, fillup_reg_info_itt);
 }
 
 static dies_memb_t *
 calc_trees_by_die(dies_info_t  *dies_info, dies_memb_t *dies_memb){
 
-  while(1){
-    gint is_last;
+    while (1){
+        gint is_last;
 
-    /* Skip SCD root entries as they always linked with regular ones */
-    if (dies_memb->flag & DIES_MEMB_FLAG_SCD_ROOT)
-    {
+        /* Skip SCD root entries as they always linked with regular ones */
+        if (dies_memb->flag & DIES_MEMB_FLAG_SCD_ROOT)
+        {
+            dies_memb++;
+            continue;
+        }
+
+        is_last = dies_memb->flag & DIES_MEMB_FLAG_IS_LAST;
+
+            /* Struct or Array */
+        if ( dies_memb->flag & DIES_MEMB_FLAG_IS_ROOT     ||
+             dies_memb->memb_type == DIES_MEMB_TYPE_ARRAY ||
+             dies_memb->memb_type == DIES_MEMB_TYPE_FIELD) {
+
+            dies_info->trees_num++;
+        }
+
+        if (dies_memb->flag & DIES_MEMB_FLAG_IS_PARENT) {
+
+            /* Proceed with 1st member of next level */
+            dies_memb++;
+            dies_memb = calc_trees_by_die(dies_info, dies_memb);      /* Recursive call */
+        }
+
+        /* Proceed with next member on that level */
+        if (is_last){
+            break;
+        }
+
         dies_memb++;
-        continue;
-    }
 
-    is_last = dies_memb->flag & DIES_MEMB_FLAG_IS_LAST;
+    } /* while(1)*/
 
-    if (dies_memb->flag & DIES_MEMB_FLAG_IS_PARENT) {
-
-      /* Struct or Array */
-      dies_info->trees_num++;
-
-      /* Proceed with 1st member of next level */
-      dies_memb++;
-      dies_memb = calc_trees_by_die(dies_info, dies_memb);      /* Recursive call */
-    }
-
-    /* Proceed with next member on that level */
-    if (is_last){
-      break;
-    }
-    
-    dies_memb++;
-
-  } /* while(1)*/
-
-  return dies_memb;
+    return dies_memb;
 
 }
 
-void
-calc_trees_num(dies_info_t  *dies_info){
+void hf_dies_print()
+{
 
-  dies_pool_t *dies_pool;
-  GHashTableIter iter;
+    FILE *hf_dies_dbg;
+    hf_dies_dbg = fopen("hf_dies_dbg.txt", "w");
 
-  /* Calcs number of trees and fields, store result in dies_info */
-  /* Number of trees is number of ALL roots + number of structs and arrays in pool */
-  /* Number of fields is number of nonSTRUCT and nonARRAY members in pool */
-
-  dies_info->trees_num = 0;
-
-  g_hash_table_iter_init(&iter, dies_info->dies_pools_hash);
-  while (g_hash_table_iter_next(&iter, NULL, (gpointer *)&dies_pool))
-  {
-    if (dies_pool->size == 0){
-      continue;
-    }
-    calc_trees_by_die(dies_info, dies_pool->dies);
-
-  }
-
-}
-
-static dies_memb_t *
-fillup_tree_reg_info_by_die(gint **ett, dies_info_t *dies_info, dies_memb_t *dies_memb){
-
-  while(1){
-    gint is_last;
-
-    /* Skip SCD root entries as they always linked with regular ones */
-    if (dies_memb->flag & DIES_MEMB_FLAG_SCD_ROOT)
+    fprintf(hf_dies_dbg, "=======================================================================================\n");
+    fprintf(hf_dies_dbg, "#    | id       | Name                 | Type            | Display         | Abbrev    \n");
+    fprintf(hf_dies_dbg, "=======================================================================================\n");
+    for (guint i = 0; i < dies_info.fields_num; i++)
     {
-        dies_memb++;
-        continue;
+
+        fprintf(hf_dies_dbg, "%-3d  | %-8d | %-20s | %-15s |%-15s | %s\n",
+                i,
+                dies_info.hf_dies[i].hfinfo.id,
+                dies_info.hf_dies[i].hfinfo.name,
+                format2str(dies_info.hf_dies[i].hfinfo.type),
+                display2str(dies_info.hf_dies[i].hfinfo.display),
+                dies_info.hf_dies[i].hfinfo.abbrev
+                );
     }
 
-    is_last = dies_memb->flag & DIES_MEMB_FLAG_IS_LAST;
-    
-    if (dies_memb->flag & DIES_MEMB_FLAG_IS_PARENT) {
 
-      /* Structure or Array */
-      ett[dies_info->ett_idx++] = &dies_memb->ett_id;
-
-      /* Proceed with 1st member of next level */
-      dies_memb++;
-
-      dies_memb = fillup_tree_reg_info_by_die(ett, dies_info, dies_memb);   /* Recursive call */
-    }
-
-    /* Proceed with next member on that level */
-    if (is_last){
-      break;
-    }
-    
-    dies_memb++;
-
-  } /* while(1)*/
-
-  return dies_memb;
+    fclose(hf_dies_dbg);
 }
 
-void
-fillup_tree_reg_info (dies_info_t  *dies_info){
 
-  dies_pool_t *dies_pool;
-  GHashTableIter iter;
+void ett_dies_print()
+{
 
-  dies_info->ett_idx = 0;
+    FILE *ett_dies_dbg;
+    ett_dies_dbg = fopen("ett_dies_dbg.txt", "w");
 
-  g_hash_table_iter_init(&iter, dies_info->dies_pools_hash);
-  while (g_hash_table_iter_next(&iter, NULL, (gpointer *)&dies_pool))
-  {
-    if (dies_pool->size == 0){
-      continue;
+    fprintf(ett_dies_dbg, "=======================================================================================\n");
+    fprintf(ett_dies_dbg, "#                                                                                      \n");
+    fprintf(ett_dies_dbg, "=======================================================================================\n");
+    for (guint i = 0; i < dies_info.trees_num; i++)
+    {
+
+        fprintf(ett_dies_dbg, "%-3d  | %-8d  | %-8d | %s\n",
+                i,
+                dies_info.ett_dies[i].ett_id,
+                dies_info.ett_dies[i].hf_idx,
+                dies_info.ett_dies[i].abbr
+                );
     }
 
-    fillup_tree_reg_info_by_die(dies_info->ett_dies, dies_info, dies_pool->dies);
-  }
 
-
+    fclose(ett_dies_dbg);
 }
+
 
 void
 proto_register_dbglog(void)
@@ -1027,18 +1161,24 @@ proto_register_dbglog(void)
 
     /* Compose fields and trees arrays by DIES pool */
     calc_fields_num(&dies_info);
-    calc_trees_num(&dies_info);
 
-    dies_info.hf_ids = g_malloc_n(dies_info.fields_num, sizeof(int*));
+    dies_info.hf_ids = g_malloc_n(dies_info.fields_num, sizeof(gint*));
     dies_info.hf_dies = g_malloc_n(dies_info.fields_num, sizeof(hf_register_info));
-    dies_info.ett_dies = g_malloc_n(dies_info.trees_num, sizeof(gint*));
+
+    dies_info.ett_ids_p = g_malloc_n(dies_info.trees_num, sizeof(gint*));
+    dies_info.ett_dies = g_malloc_n(dies_info.trees_num, sizeof(ett_info_t));
 
     fillup_reg_info(&dies_info);
-    fillup_tree_reg_info(&dies_info);
+
+    hf_dies_print();
+    ett_dies_print();
 
     /* Register fields and trees. DIES depended part */
     proto_register_field_array(proto_dbglog, dies_info.hf_dies, dies_info.fields_num);
-    proto_register_subtree_array(dies_info.ett_dies, dies_info.trees_num);
+    proto_register_subtree_array(dies_info.ett_ids_p, dies_info.trees_num);
+
+    hf_dies_print();
+    ett_dies_print();
 
 end_of_proto_register_dbglog:
 
