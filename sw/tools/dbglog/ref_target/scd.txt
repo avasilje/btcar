@@ -1,16 +1,16 @@
-E   1   C:\MyWorks\BTCar\sw\tools\dbglog\ref_target\ref_target.elf 
+E   1   C:\MyWorks\BTCar\sw\tools\dbglog\ref_target\ref_target.elf
 F   1   2   dbg_log.c
 F   1   1   main.c
-D   1   1   210   "Just note"
-D   1   1   215   "Just note 1st lineJust note 2nd line"
-D   1   1   219   "signature %(T_SIGN_STRUCT)."
-D   1   1   223   "HW info  %(HW_INFO) just digit %(uint8_t)"
-D   1   1   226   " Structure of Functions %(T_FUNC_STRUCT)"
-D   1   1   229   "Named union %(T_UNION_NB)"
-D   1   1   232   "Base type test  %(unsigned char)"
-D   1   1   234   "testing typedef enums  %(T_ENUM_A)"
-D   1   1   236   "testing Arrays  %(ARRAY_TYPE_BASE_1)"
-D   1   1   238   "testing Arrays  %(ARRAY_TYPE_BASE_2)"
-D   1   1   240   "testing_NxArrays typedef %(T_N_ARRAY_STYPE)"
-D   1   1   242   "testing_NxArrays typedef %(T_N_ARRAY_SBASE)"
-
+D   1   1   223   "Just note"
+D   1   1   228   "Just note 1st lineJust note 2nd line"
+D   1   1   232   "signature %(T_SIGN_STRUCT)."
+D   1   1   236   "HW info  %(HW_INFO) just digit %(uint8_t)"
+D   1   1   239   "Structure of Functions %(T_FUNC_STRUCT)"
+D   1   1   242   "Named union %(T_UNION_NB)"
+D   1   1   244   "Base type test  %(unsigned char)"
+D   1   1   246   "testing typedef enums  %(T_ENUM_A)"
+D   1   1   248   "testing Arrays  %(ARRAY_TYPE_BASE_1)"
+D   1   1   250   "testing Arrays  %(ARRAY_TYPE_BASE_2)"
+D   1   1   252   "testing_NxArrays typedef %(T_N_ARRAY_STYPE)"
+D   1   1   254   "testing_NxArrays typedef %(T_N_ARRAY_SBASE)"
+D   1   1   258   "Mega struct %(DBGLOG_TEST)"

@@ -37,6 +37,8 @@ typedef union named_union_b_e {
     PT_DUMMY  p_pdummy_s;
 } T_UNION_NB;
 
+typedef struct sign_struct T_SIGN_STRUCT;
+
 typedef struct {
     struct sign_struct {
         void *ptr_void;
@@ -44,13 +46,12 @@ typedef struct {
         uint8_t  uc_ver_maj;
         uint8_t  uc_ver_min;
         char     ca_sign[SIGN_LEN];
-    } t_sign;
+    } t_sign1;
+    T_SIGN_STRUCT t_sign2;
     void (*pf_led_func)(uint8_t);
     uint8_t  reserved[128-sizeof(struct sign_struct) - sizeof(void*)];
 }HW_INFO;
 
-
-typedef struct sign_struct T_SIGN_STRUCT;
 
 typedef enum _enum_a_e {
     enum_str_A = 1,
@@ -62,7 +63,8 @@ typedef enum _enum_a_e {
 typedef struct {
     HW_INFO *pointer_A;
     HW_INFO  struct_A;
-    struct test_struct {
+    struct test_struct_B {
+
         union {      				// Unnamed union
             uint8_t  union_A1;
             uint16_t union_A2;
@@ -72,13 +74,21 @@ typedef struct {
             uint8_t  union_B1;
             uint16_t union_B2;
         } named_union_B;
+	
+	T_ENUM_A enum_B;
 
         T_DUMMY  str_str_A;         // Structure in structure through typedef
         uint8_t  field_A;
         uint8_t  field_B;
         char     array_A[5];
         char     array_AA[2][3];
-    } struct_B;                     // in place defined structure in structure
+    } named_struct_B;                     // in place defined structure in structure
+
+    struct {
+        uint8_t  field_A;
+        uint8_t  field_B;
+    } unnamed_struct_C;                     // in place defined structure in structure
+
     
     void (*pf_func_A)(uint8_t);
     void (*pf_func_B)(HW_INFO *hw_info_p);
@@ -146,28 +156,31 @@ void init_dbglog_test_data()
 
     memset(&dbglog_test.struct_A, 0x55, sizeof(dbglog_test.struct_A));
 
-    dbglog_test.struct_B.union_A1 = 0x22;
-    dbglog_test.struct_B.union_A2 = 0x3344;
-    dbglog_test.struct_B.named_union_B.union_B1 = 0x55;
-    dbglog_test.struct_B.named_union_B.union_B1 = 0x66;
-    dbglog_test.struct_B.str_str_A.int8_A = 0x77;
-    dbglog_test.struct_B.str_str_A.int16_A = 0x8899;
-    dbglog_test.struct_B.field_A = 0xAA;
-    dbglog_test.struct_B.field_B = 0xBB;
+    dbglog_test.unnamed_struct_C.field_A = 0xCC;
+    dbglog_test.unnamed_struct_C.field_B = 0xDD;
 
-    dbglog_test.struct_B.array_A[0] = 0x00;
-    dbglog_test.struct_B.array_A[1] = 0x11;
-    dbglog_test.struct_B.array_A[2] = 0x22;
-    dbglog_test.struct_B.array_A[3] = 0x33;
-    dbglog_test.struct_B.array_A[4] = 0x44;
+    dbglog_test.named_struct_B.union_A1 = 0x22;
+    dbglog_test.named_struct_B.union_A2 = 0x3344;
+    dbglog_test.named_struct_B.named_union_B.union_B1 = 0x55;
+    dbglog_test.named_struct_B.named_union_B.union_B1 = 0x66;
+    dbglog_test.named_struct_B.str_str_A.int8_A = 0x77;
+    dbglog_test.named_struct_B.str_str_A.int16_A = 0x8899;
+    dbglog_test.named_struct_B.field_A = 0xAA;
+    dbglog_test.named_struct_B.field_B = 0xBB;
 
-    dbglog_test.struct_B.array_AA[0][0] = 0x00;
-    dbglog_test.struct_B.array_AA[0][1] = 0x01;
-    dbglog_test.struct_B.array_AA[0][2] = 0x02;
+    dbglog_test.named_struct_B.array_A[0] = 0x00;
+    dbglog_test.named_struct_B.array_A[1] = 0x11;
+    dbglog_test.named_struct_B.array_A[2] = 0x22;
+    dbglog_test.named_struct_B.array_A[3] = 0x33;
+    dbglog_test.named_struct_B.array_A[4] = 0x44;
+
+    dbglog_test.named_struct_B.array_AA[0][0] = 0x00;
+    dbglog_test.named_struct_B.array_AA[0][1] = 0x01;
+    dbglog_test.named_struct_B.array_AA[0][2] = 0x02;
                                         
-    dbglog_test.struct_B.array_AA[1][0] = 0x10;
-    dbglog_test.struct_B.array_AA[1][1] = 0x11;
-    dbglog_test.struct_B.array_AA[1][2] = 0x12;
+    dbglog_test.named_struct_B.array_AA[1][0] = 0x10;
+    dbglog_test.named_struct_B.array_AA[1][1] = 0x11;
+    dbglog_test.named_struct_B.array_AA[1][2] = 0x12;
 
     dbglog_test.pf_func_A = (void*)(0x12345678);
     dbglog_test.pf_func_B = (void*)(0x87654321);
@@ -183,9 +196,9 @@ void init_dbglog_test_data()
 
     dbglog_test.enum_A = enum_str_C;
 
-    gt_hw_info.t_sign.uc_ver_maj = 0x12;
-    gt_hw_info.t_sign.uc_ver_min = 0x34;
-    strncpy(gt_hw_info.t_sign.ca_sign, "Test string", SIGN_LEN);
+    gt_hw_info.t_sign1.uc_ver_maj = 0x12;
+    gt_hw_info.t_sign1.uc_ver_min = 0x34;
+    strncpy(gt_hw_info.t_sign1.ca_sign, "Test string", SIGN_LEN);
     gt_hw_info.pf_led_func = (void*)init_dbglog_test_data;
 
 }
@@ -214,7 +227,7 @@ int main (void)
               NULL
     );
 
-    sign_ptr = &gt_hw_info.t_sign;
+    sign_ptr = &gt_hw_info.t_sign1;
     DBG_LOG_D("signature %(T_SIGN_STRUCT).",
               VAR2ADDR_SIZE(*sign_ptr));
 
@@ -222,13 +235,12 @@ int main (void)
               VAR2ADDR_SIZE(gt_hw_info),
               VAR2ADDR_SIZE(uc_i));
 
-    DBG_LOG_D(" Structure of Functions %(T_FUNC_STRUCT)",
+    DBG_LOG_D("Structure of Functions %(T_FUNC_STRUCT)",
               VAR2ADDR_SIZE(struct_func));
 
     DBG_LOG_D("Named union %(T_UNION_NB)",
               VAR2ADDR_SIZE(named_union_b));
 
-/*
     DBG_LOG_D("Base type test  %(unsigned char)", VAR2ADDR_SIZE(uc_i));
 
     DBG_LOG_D("testing typedef enums  %(T_ENUM_A)", VAR2ADDR_SIZE(test_enum));
@@ -240,10 +252,10 @@ int main (void)
     DBG_LOG_D("testing_NxArrays typedef %(T_N_ARRAY_STYPE)", VAR2ADDR_SIZE(n_array_stype));
 
     DBG_LOG_D("testing_NxArrays typedef %(T_N_ARRAY_SBASE)", VAR2ADDR_SIZE(n_array_sbase));
-*/
 
-//    DBG_LOG_!D("Mega struct %(DBGLOG_TEST)",
-//              VAR2ADDR_SIZE(dbglog_test));
+
+    DBG_LOG_D("Mega struct %(DBGLOG_TEST)",
+              VAR2ADDR_SIZE(dbglog_test));
 
 
     fclose(out_file);
