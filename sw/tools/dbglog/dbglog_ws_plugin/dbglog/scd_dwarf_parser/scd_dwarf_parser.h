@@ -23,6 +23,7 @@ typedef enum _dies_memb_type_t{
   DIES_MEMB_TYPE_ARRAY,
   DIES_MEMB_TYPE_POINTER,
   DIES_MEMB_TYPE_FIELD,
+  // --------
   DIES_MEMB_TYPE_LAST
 } dies_memb_type_t;
 
@@ -40,9 +41,9 @@ typedef struct _dies_memb_t {
   
   gint self_id;
   gint link_id;
-  gint flag;
+  gint flag;                // DIES_MEMB_FLAG_xxx
 
-  gint  ett_id;             // subtree ID filled by WireShark on registration 
+  gint  scd_ett_idx;        // 
   gint  scd_hf_idx;         // Starting index of field handle for SCD entry. 
                             // Valid for SCD die only.
    
@@ -70,5 +71,8 @@ void scd_dwarf_free(scd_info_t *scd_info);
 
 void print_ids(FILE *fout, scd_entry_t *scd_entry, unsigned int ids_size);
 void dies_pool_print(FILE *fout, GHashTable *dies_pools_hash);
+
+char* display2str(field_display_e disp);
+char* format2str(ftenum_t format);
 
 #endif /* _SCD_DWARF_PARSER_H_ */

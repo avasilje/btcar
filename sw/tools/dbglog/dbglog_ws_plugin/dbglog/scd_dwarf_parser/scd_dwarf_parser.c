@@ -151,8 +151,6 @@ static dies_memb_t *add_record(dies_pool_t *dies_pool)
     p->link_id = -1;
     p->flag = 0;
 
-    p->ett_id = -1;
-
     DBG_PRINT1("NEW RECORD[%d]()\n", dies_pool->next_idx);
 
     dies_check_memory(dies_pool);
@@ -172,7 +170,6 @@ void scd_dwarf_free(scd_info_t *scd_info)
 {
     scd_free(scd_info);
 }
-
 
 int scd_dwarf_parse(char *scd_fn, scd_info_t **scd_info_out, GHashTable **dies_pools_hash)
 {
@@ -591,7 +588,7 @@ static dies_memb_t *process_record(dies_pool_t *dies_pool, dies_memb_t *dies_mem
         parent_dies_memb->type_name = die_get_type_name(die, NULL);
         
         // Try to link that type with basic pointer type (void*)
-        link_if_possible(dies_pool, parent_dies_memb, "void*");
+        link_if_possible(dies_pool, parent_dies_memb, "void");
         if (parent_dies_memb->link_id != -1){
             return &dies_pool->dies[parent_dies_memb->link_id];
         }
@@ -603,7 +600,7 @@ static dies_memb_t *process_record(dies_pool_t *dies_pool, dies_memb_t *dies_mem
         dies_memb->field_name = g_strdup("");
         dies_memb->size = die_get_size(die);
 
-        dies_memb->type_name = g_strdup("void*");
+        dies_memb->type_name = g_strdup("void");
  
         g_hash_table_insert(dies_pool->dies_hash, (gpointer)dies_memb->type_name, (gpointer)dies_memb);
  
@@ -641,7 +638,7 @@ static dies_memb_t *process_record(dies_pool_t *dies_pool, dies_memb_t *dies_mem
             dies_memb->field_name = g_strappend(NULL, fmt_str, name ? name : "");
         }
 
-        dies_memb->memb_type = DIES_MEMB_TYPE_STRUCT;
+//        dies_memb->memb_type = DIES_MEMB_TYPE_STRUCT;
         break;
     }
     case DW_TAG_member:
@@ -960,6 +957,7 @@ static void record_format(dies_memb_t *rec, Dwarf_Die die)
     int            is_signed;
 
     is_signed = TRUE;
+    display = BASE_DEC;
 
     if (DW_TAG_typedef == tag || DW_TAG_volatile_type == tag) {
         type_die = typedef_to_type(type_die);
@@ -968,10 +966,11 @@ static void record_format(dies_memb_t *rec, Dwarf_Die die)
 
     if (DW_TAG_pointer_type == tag) {
         display = BASE_HEX;
+        is_signed = FALSE;
     }
-
     else if (DW_TAG_enumeration_type == tag) {
-        display = BASE_HEX;
+        is_signed = FALSE;
+        display = BASE_DEC_HEX;
     }
     else if (DW_TAG_base_type == tag) {
         char *type_name = die_get_name(type_die);
@@ -982,10 +981,6 @@ static void record_format(dies_memb_t *rec, Dwarf_Die die)
         }
         else if (strstr(type_name, "signed")) {
             is_signed = TRUE;
-            display = BASE_DEC;
-        }
-        else {
-            display = BASE_DEC_HEX;
         }
     }
 
@@ -1392,7 +1387,7 @@ char *get_dies_flag_str(gint flag, char *str){
 
     return str;    
 }
-static char* format2str(ftenum_t format)
+char* format2str(ftenum_t format)
 {
     static char *ftenum_str[FT_NUM_TYPES] = {
         [FT_NONE         ] = "FT_NONE         ",      /* used for text labels with no value */
@@ -1437,7 +1432,7 @@ static char* format2str(ftenum_t format)
     return ftenum_str[format];
 }
 
-static char* display2str(field_display_e disp)
+char* display2str(field_display_e disp)
 {
     static char *display_str[] =  {
       [BASE_NONE   ] = "BASE_NONE   ",    /**< none */
@@ -1451,6 +1446,7 @@ static char* display2str(field_display_e disp)
 
     return display_str[disp];
 }
+
 static void dies_print(FILE *fout, dies_memb_t *dies_memb, int cur_level)
 {
 #define MAX_INDENT    (10 * 4)
